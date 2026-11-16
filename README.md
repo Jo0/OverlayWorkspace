@@ -33,9 +33,20 @@ Netlify, a USB stick with a local server). It has to be served over http(s):
 browsers don't allow ES modules from `file://`.
 
 Browser: current **Chrome or Edge** on desktop is the main target (WebCodecs,
-File System Access for writing straight to a folder). Firefox and Safari have
-WebCodecs as well, but they're untested; without the File System Access API,
-exports download instead.
+File System Access for writing straight to a folder).
+
+**Firefox** works too (tested with Firefox 160 on Windows: editing, previewing
+DJI 4K 120 fps HEVC clips, and export). Two differences:
+
+- Exports download instead of being written into a folder (Firefox has no
+  File System Access API).
+- Firefox gives web pages only a software H.264 encoder, so export is slower:
+  about 12 fps at 4K and 40 fps at 1080p on the test machine, roughly a third
+  of Chrome's hardware speed. A 70 s run at 4K 59.94 takes about 6 minutes.
+
+(Firefox's encoder also uses B-frames and writes a malformed decoder header;
+the MP4 writer handles both, see `src/export/mp4-writer.js`.) Safari is
+untested.
 
 ## Workflow
 
@@ -122,8 +133,10 @@ exports download instead.
    - **Size:** export at your footage's size (3840×2160 for 4K).
    - **Frame rate:** 59.94 is plenty for gauges, and twice as fast as 119.88.
    - **Saving:** in Chrome or Edge, *Choose folder & export* writes straight
-     into a folder. Elsewhere (including the Claude app's browser pane), use
-     *Download files instead*.
+     into a folder. Elsewhere (Firefox, the Claude app's browser pane), the
+     files download. Clear old exports out of Downloads first: if a name is
+     taken, the browser saves it as `name(1).mp4`, and the `.overlay.json`
+     then points at the old file.
 
    If the clip will be trimmed later (CameraWorkflow's `trim`), give the
    overlay at least as much lead-in as the trim keeps. Otherwise the first
