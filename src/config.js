@@ -5,5 +5,5 @@ export const CONFIG = {
   supportUrl: "https://ko-fi.com/badjo0jo0",
   supportLabel: "Support on Ko-fi",
   // e.g. the GitHub repository, shown as "Source".
-  sourceUrl: "",
+  sourceUrl: "https://github.com/Jo0/OverlayWorkspace",
 };

@@ -17,12 +17,15 @@ alpha matte that any editor (or ffmpeg) can put over your footage.
   never uploaded. Export uses the browser's built-in video encoder (WebCodecs),
   hardware-accelerated where available.
 
+**Use it online: <https://jo0.github.io/OverlayWorkspace/>** (nothing to
+install; your files still stay on your computer).
+
 Data sources: **RaceChrono Pro** (CSV v3) for now. Other lap timers and loggers
 plug in as importers; see [docs/EXTENDING.md](docs/EXTENDING.md).
 
 ## Running it
 
-It's a static site: no build step, no dependencies.
+It's a static site: no build step, no dependencies. To run your own copy:
 
 ```bash
 python tools/serve.py
