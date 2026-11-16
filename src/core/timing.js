@@ -7,13 +7,26 @@ import { Channel } from "./session.js";
 export class Timing {
   constructor(session) {
     this.session = session;
-    this.comparison = "best"; // "best" or a lap number
+    this.comparison = "best"; // "best", "theoretical" or a lap number
+    this.sections = 10; // for "theoretical"
     this.distance = session.channel("@distance") || integrateSpeed(session);
     this._profiles = new Map();
+    this._theo = undefined;
   }
 
-  setComparison(ref) {
-    this.comparison = ref === "best" || ref == null ? "best" : Number(ref);
+  setComparison(ref, sections) {
+    this.comparison = ref === "best" || ref == null ? "best" : ref === "theoretical" ? "theoretical" : Number(ref);
+    const n = Math.round(Number(sections));
+    if (Number.isFinite(n) && n >= 1 && n !== this.sections) {
+      this.sections = Math.min(500, n);
+      this._theo = undefined;
+    }
+  }
+
+  /** Call after laps change (Skip toggled): drops cached profiles and the theoretical lap. */
+  invalidate() {
+    this._profiles.clear();
+    this._theo = undefined;
   }
 
   validLaps() {
@@ -31,11 +44,74 @@ export class Timing {
 
   comparisonLap() {
     if (this.comparison === "best") return this.bestLap();
+    if (this.comparison === "theoretical") return this.theoreticalLap() || this.bestLap();
     return this.session.laps.find((l) => l.number === this.comparison) || this.bestLap();
+  }
+
+  /** Short name of what the delta compares against, for labels ("{cmp}"). */
+  comparisonLabel() {
+    const c = this.comparisonLap();
+    if (!c) return "";
+    if (c.theoretical) return "THEO";
+    // "theoretical" with too few laps falls back to the best lap
+    if (this.comparison === "best" || this.comparison === "theoretical") return "BEST";
+    return `LAP ${c.number}`;
+  }
+
+  /**
+   * The theoretical best: each lap is cut into `sections` equal parts by
+   * fraction of the lap, the fastest time through each part is taken from any
+   * non-skipped lap, and those parts are joined into one target. Within a part
+   * the target follows the pace of the lap that was fastest there. Returns a
+   * lap-like object { number: "T", theoretical: true, duration, sections,
+   * profile } or null with fewer than two usable laps. Assumes every lap is the
+   * same course (true for one track or autocross layout).
+   */
+  theoreticalLap() {
+    if (this._theo !== undefined) return this._theo;
+    const laps = this.validLaps().map((l) => ({ lap: l, p: this.profile(l) })).filter((x) => x.p && x.p.total > 0);
+    if (laps.length < 2) return (this._theo = null);
+    const n = this.sections;
+    const at = (x, f) => timeAtDistance(x.p, f * x.p.total);
+    const parts = [];
+    let cum = 0;
+    for (let k = 0; k < n; k++) {
+      const f0 = k / n, f1 = (k + 1) / n;
+      let best = null, bestT = Infinity;
+      for (const x of laps) {
+        const dt = at(x, f1) - at(x, f0);
+        if (dt < bestT) { bestT = dt; best = x; }
+      }
+      parts.push({ f0, f1, from: best, start: cum, time: bestT, lap: best.lap.number });
+      cum += bestT;
+    }
+    // Dense time-vs-distance curve over a reference length; the delta code
+    // rescales by fraction of the lap, so the reference length doesn't matter.
+    const total = laps.reduce((a, x) => a + x.p.total, 0) / laps.length;
+    const m = n * 50;
+    const t = new Float64Array(m + 1), d = new Float64Array(m + 1);
+    for (let i = 0; i <= m; i++) {
+      const f = i / m;
+      const part = parts[Math.min(n - 1, Math.floor(f * n))];
+      t[i] = Math.max(i ? t[i - 1] : 0, part.start + at(part.from, f) - at(part.from, part.f0));
+      d[i] = f * total;
+    }
+    this._theo = {
+      number: "T",
+      theoretical: true,
+      excluded: false,
+      start: NaN,
+      end: NaN,
+      duration: cum,
+      sections: parts.map(({ f0, f1, time, lap }) => ({ f0, f1, time, lap })),
+      profile: { t, d, total, duration: cum },
+    };
+    return this._theo;
   }
 
   /** Distance/time profile of a lap: arrays of (distance from start, time from start). */
   profile(lap) {
+    if (lap && lap.theoretical) return lap.profile;
     if (!lap || !this.distance) return null;
     let p = this._profiles.get(lap);
     if (p) return p;
@@ -136,6 +212,7 @@ export class Timing {
       last,
       best: this.bestLap(t),
       comparison: cmp,
+      comparisonLabel: this.comparisonLabel(),
       delta,
       predicted,
       distance,

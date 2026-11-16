@@ -53,6 +53,14 @@ exports download instead.
      shows its own timer and still exports.
    - **Cmp:** picks the comparison lap for the delta. The default is the best
      non-skipped lap.
+   - **Compare to theoretical:** compares against your theoretical best: the
+     fastest time through each part of the lap, taken from any non-skipped lap
+     and joined into one target. This gives a useful delta even on your best
+     lap. Each lap is cut into equal parts (10 by default; set it in the
+     template inspector). More parts give a lower, more optimistic target. On
+     2026-11-15 it was 1:08.136 with 10 parts, against a best lap of 1:08.849.
+     Write `{cmp}` in a delta label to show what it compares against: "Δ THEO",
+     "Δ BEST" or "Δ LAP 7".
 4. **Load the video and sync it** to preview the overlay on your footage. The
    file's recording time is the first guess; the camera clock is usually off.
    - **Auto-sync from GPS:** for a DJI Osmo Action with a GPS remote, the app

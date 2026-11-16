@@ -156,3 +156,32 @@ test("NMEA RMC parsing", async () => {
   assert.ok(Math.abs(fixes[0].lat - 32.7695468) < 1e-6);
   assert.ok(Math.abs(fixes[0].lon - -96.9892337) < 1e-6);
 });
+
+test("theoretical best stitches the fastest sections of different laps", async () => {
+  const { Channel, Session } = await import("../src/core/session.js");
+  // A 400 m lap, driven twice. Lap 1: first half at 20 m/s, second at 10 (10 s + 20 s).
+  // Lap 2: the opposite (20 s + 10 s). Both are 30 s; the theoretical best is 10 + 10 = 20 s.
+  const times = [], dist = [];
+  let t = 0, d = 0;
+  const drive = (meters, speed) => { for (let k = 0; k < meters; k++) { t += 1 / speed; d += 1; times.push(t); dist.push(d); } };
+  times.push(0); dist.push(0);
+  drive(200, 20); drive(200, 10); // lap 1: 0..30
+  drive(200, 10); drive(200, 20); // lap 2: 30..60
+  const ch = new Channel({ id: "d", name: "distance", unit: "m", dimension: "distance", role: "distance", maxGap: 5 }, Float64Array.from(times), Float64Array.from(dist));
+  const s = new Session({ channels: [ch], laps: [{ number: 1, fragment: 0, start: 0, end: 30 }, { number: 2, fragment: 0, start: 30, end: 60 }], fragments: [{ id: 0, start: 0, end: 60 }] });
+  const tm = new Timing(s);
+  tm.setComparison("theoretical", 10);
+  const theo = tm.comparisonLap();
+  assert.ok(theo.theoretical);
+  assert.ok(Math.abs(theo.duration - 20) < 0.05, `theoretical ${theo.duration}`);
+  assert.equal(tm.comparisonLabel(), "THEO");
+  // Watching lap 1: even at its fast half it matches the target; then it loses 10 s.
+  assert.ok(Math.abs(tm.context(10).delta) < 0.05, `halfway ${tm.context(10).delta}`);
+  assert.ok(Math.abs(tm.context(29.99).delta - 10) < 0.1, `finish ${tm.context(29.99).delta}`);
+  assert.ok(Math.abs(tm.context(61).delta - 10) < 0.05, "after the last lap: its final difference");
+  // Skipping a lap leaves one lap: falls back to the best lap.
+  s.laps[1].excluded = true;
+  tm.invalidate();
+  assert.equal(tm.comparisonLap().number, 1);
+  assert.equal(tm.comparisonLabel(), "BEST");
+});

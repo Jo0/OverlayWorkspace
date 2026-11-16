@@ -73,7 +73,7 @@ function buildDataPanel() {
   for (const l of s.laps) {
     const skip = h("input", { type: "checkbox", title: "Leave out of best lap and comparison" });
     skip.checked = !!l.excluded;
-    skip.addEventListener("change", () => { l.excluded = skip.checked; state.timing._profiles.clear(); emit("element", null); buildDataPanel(); });
+    skip.addEventListener("change", () => { l.excluded = skip.checked; state.timing.invalidate(); emit("element", null); buildDataPanel(); });
     const radio = h("input", { type: "radio", name: "cmp-lap", title: "Compare against this lap" });
     radio.checked = state.template.timing.comparison === l.number;
     radio.addEventListener("change", () => {
@@ -93,9 +93,13 @@ function buildDataPanel() {
       h("td", {}, h("button", { class: "small", title: "Jump to 2 s before this lap starts", onclick: () => { setTime(l.start - 2); seekVideoToTime(); emit("view-lap", l); } }, "Go"))));
   }
   table.append(tb);
-  const useBest = h("button", { class: "small", onclick: () => { state.template.timing.comparison = "best"; applyComparison(); emit("element", null); emit("template", state.template); history.push(); buildDataPanel(); } }, "Compare to best");
-  root.append(table, h("div", { class: "row-inline small muted" },
-    h("span", {}, `Comparison: lap ${cmp ? cmp.number : "-"}${state.template.timing.comparison === "best" ? " (best)" : ""}`), useBest));
+  const compareTo = (v, label) => h("button", { class: "small", onclick: () => { state.template.timing.comparison = v; applyComparison(); emit("element", null); emit("template", state.template); history.push(); buildDataPanel(); } }, label);
+  const mode = state.template.timing.comparison;
+  const cmpText = !cmp ? "Comparison: -"
+    : cmp.theoretical ? `Comparison: theoretical ${formatLapTime(cmp.duration)} (best of ${cmp.sections.length} sections; ${formatLapTime(best ? best.duration - cmp.duration : NaN)} under the best lap)`
+    : `Comparison: lap ${cmp.number}${mode === "best" ? " (best)" : mode === "theoretical" ? " (best; theoretical needs 2+ laps)" : ""}`;
+  root.append(table, h("div", { class: "row-inline small muted" }, h("span", {}, cmpText)),
+    h("div", { class: "row-inline" }, compareTo("best", "Compare to best"), compareTo("theoretical", "Compare to theoretical")));
 }
 
 // ── Video ────────────────────────────────────────────────────────────────────

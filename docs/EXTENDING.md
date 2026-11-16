@@ -101,7 +101,7 @@ What `draw` gets:
   - `frame.value(ref)`: a channel value at that time, in base units. `ref`
     is `@role`, a channel id, or a virtual timing channel: `timing.elapsed`,
     `timing.delta`, `timing.predicted`, `timing.last`, `timing.best`,
-    `timing.lap`, `timing.progress`, `timing.distance`, `timing.remaining`.
+    `timing.lap`, `timing.progress`, `timing.distance`, `timing.remaining`, and `timing.target` (the comparison lap's time: best, theoretical or chosen).
   - `frame.timing`: the full lap context (state, lap, last, best,
     comparison...).
   - `frame.session`: the session, for paths and history.
@@ -185,7 +185,7 @@ Font notes:
   "canvas": { "width": 3840, "height": 2160 },   // design pixels
   "theme": "default",
   "themeOverrides": { "colors": { "accent": "#00B7FF" } },  // optional
-  "timing": { "comparison": "best" },             // or a lap number
+  "timing": { "comparison": "best", "sections": 10 },  // "best", "theoretical" or a lap number; sections: parts per lap for "theoretical"
   "elements": [
     {
       "id": "speed", "type": "readout", "name": "Speed",

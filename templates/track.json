@@ -11,7 +11,7 @@
     { "id": "timer", "type": "laptimer", "name": "Lap timer", "x": 110, "y": 100, "w": 1100, "h": 430, "anchor": "tl",
       "props": { "title": "LAP {lap}", "showLast": true, "showBest": true } },
     { "id": "delta", "type": "delta", "name": "Delta", "x": 1320, "y": 100, "w": 1200, "h": 260, "anchor": "tc",
-      "props": { "label": "Δ BEST", "decimals": 2, "range": 2 } },
+      "props": { "label": "Δ {cmp}", "decimals": 2, "range": 2 } },
     { "id": "map", "type": "trackmap", "name": "Track map", "x": 2880, "y": 90, "w": 860, "h": 860, "anchor": "tr",
       "props": { "scope": "lap" } },
     { "id": "speed", "type": "dial", "name": "Speed", "x": 110, "y": 1340, "w": 720, "h": 720, "anchor": "bl",

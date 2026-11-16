@@ -8,6 +8,7 @@ export const VIRTUAL_CHANNELS = {
   "timing.predicted": { label: "Predicted lap time", dimension: "time" },
   "timing.last": { label: "Last lap time", dimension: "time" },
   "timing.best": { label: "Best lap time so far", dimension: "time" },
+  "timing.target": { label: "Comparison lap time (best, theoretical or chosen lap)", dimension: "time" },
   "timing.lap": { label: "Lap number", dimension: "none" },
   "timing.progress": { label: "Lap progress", dimension: "percent" },
   "timing.distance": { label: "Distance into lap", dimension: "distance" },
@@ -45,6 +46,7 @@ function timingValue(tc, ref) {
     case "timing.predicted": return tc.predicted;
     case "timing.last": return tc.last ? tc.last.duration : NaN;
     case "timing.best": return tc.best ? tc.best.duration : NaN;
+    case "timing.target": return tc.comparison ? tc.comparison.duration : NaN;
     case "timing.lap": return tc.lapNumber;
     case "timing.progress": return tc.progress * 100;
     case "timing.distance": return tc.distance;

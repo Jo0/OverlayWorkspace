@@ -193,12 +193,22 @@ function buildTemplate() {
       build();
     })),
     row("Delta compares against", selectInput(comparisonChoices(), String(t.timing.comparison), (v) => {
-      t.timing.comparison = v === "best" ? "best" : Number(v);
+      t.timing.comparison = v === "best" || v === "theoretical" ? v : Number(v);
       applyComparison();
       emit("element", null);
       emit("comparison-changed");
       history.push();
+      build();
     })),
+    t.timing.comparison === "theoretical"
+      ? row("Theoretical: sections per lap", numberInput(t.timing.sections ?? 10, { step: 1, min: 1, max: 500, lazy: true }, (v) => {
+          t.timing.sections = Math.max(1, Math.round(v));
+          applyComparison();
+          emit("element", null);
+          emit("comparison-changed");
+          history.push();
+        }), "The lap is cut into this many equal parts; the fastest time through each part, from any lap, makes the target. More parts give a lower (more optimistic) target.")
+      : null,
   ));
 
   const th = state.theme;
@@ -246,7 +256,10 @@ function buildTemplate() {
 }
 
 function comparisonChoices() {
-  const out = [{ value: "best", label: "Best lap (excluding marked laps)" }];
+  const out = [
+    { value: "best", label: "Best lap (excluding skipped laps)" },
+    { value: "theoretical", label: "Theoretical best (fastest sections of all laps)" },
+  ];
   if (state.session) for (const l of state.session.laps) out.push({ value: String(l.number), label: `Lap ${l.number}` });
   return out;
 }

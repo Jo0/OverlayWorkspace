@@ -57,7 +57,7 @@ export function setSession(session) {
 }
 
 export function applyComparison() {
-  if (state.timing && state.template) state.timing.setComparison(state.template.timing.comparison);
+  if (state.timing && state.template) state.timing.setComparison(state.template.timing.comparison, state.template.timing.sections);
 }
 
 export function setTime(t) {

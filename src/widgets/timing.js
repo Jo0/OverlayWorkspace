@@ -91,10 +91,10 @@ widgets.register({
   defaults: {
     w: 1200,
     h: 260,
-    props: { label: "Δ BEST", decimals: 2, range: 2, showBar: true, gainColor: "good", lossColor: "bad", panel: true, barShape: "rounded" },
+    props: { label: "Δ {cmp}", decimals: 2, range: 2, showBar: true, gainColor: "good", lossColor: "bad", panel: true, barShape: "rounded" },
   },
   props: [
-    P.label,
+    { key: "label", label: "Label ({cmp} = BEST / THEO / LAP n)", type: "text" },
     P.decimals,
     { key: "range", label: "Bar range (± seconds)", type: "number", min: 0.1, max: 30, step: 0.1 },
     { key: "showBar", label: "Show bar", type: "bool" },
@@ -109,12 +109,13 @@ widgets.register({
     const col = !Number.isFinite(d) ? "muted" : d <= 0 ? props.gainColor : props.lossColor;
     const barH = props.showBar ? box.h * 0.26 : 0;
     const textH = box.h - (barH ? barH * 1.35 : 0);
-    const labelSize = props.label ? textH * 0.36 : 0;
+    const labelSize = props.label ? textH * 0.36 : 0; // sized from the template text
     const valText = formatDelta(d, props.decimals);
+    const label = (props.label || "").replace("{cmp}", (frame.timing && frame.timing.comparisonLabel) || "BEST");
     const valSize = fitSize(ctx, theme, "number", "+00." + "0".repeat(props.decimals), box.w * 0.6, (textH / CAP) * 0.9);
     const baseline = box.y + (textH + valSize * CAP) / 2;
     if (props.label) {
-      drawText(ctx, theme, props.label, box.x, baseline, { role: "label", size: labelSize, color: "muted" });
+      drawText(ctx, theme, label, box.x, baseline, { role: "label", size: labelSize, color: "muted" });
       drawText(ctx, theme, valText, box.x + box.w, baseline, { role: "number", size: valSize, color: col, align: "right" });
     } else {
       drawText(ctx, theme, valText, box.x + box.w / 2, baseline, { role: "number", size: valSize, color: col, align: "center" });
