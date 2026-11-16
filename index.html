@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OverlayWorkspace</title>
+  <meta name="description" content="Design telemetry overlays for your onboard video on a full-size screen, from your lap timer's export. Runs entirely in your browser; files never leave your computer.">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Overlay<span>Workspace</span></div>
+    <select id="template-select" title="Start a new layout from a template"></select>
+    <button id="btn-open" title="Open a .template.json file">Open…</button>
+    <button id="btn-save" title="Save this layout as a .template.json file">Save…</button>
+    <button id="btn-undo" class="icon" title="Undo (Ctrl+Z)">↶</button>
+    <button id="btn-redo" class="icon" title="Redo (Ctrl+Y)">↷</button>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <nav id="header-links" class="links"></nav>
+    <button id="btn-export" class="primary">Export overlay…</button>
+  </header>
+
+  <main class="workspace">
+    <aside class="side left">
+      <section id="panel-data" class="panel"></section>
+      <section id="panel-video" class="panel"></section>
+      <section id="panel-layers" class="panel"></section>
+    </aside>
+
+    <section class="center">
+      <div class="stage-toolbar">
+        <label class="inline">Snap <input id="grid-size" type="number" min="0" max="500" step="1"> px</label>
+        <label class="inline"><input id="grid-show" type="checkbox"> Show grid</label>
+        <label class="inline">Background
+          <select id="preview-bg">
+            <option value="checker">Checkerboard</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </label>
+        <span class="muted small">Coordinates are design pixels on the template canvas. Drag to move, handles to resize (Shift keeps proportions).</span>
+      </div>
+      <div id="stage-wrap" class="stage-wrap">
+        <div id="stage" class="stage">
+          <video id="video" muted playsinline preload="auto"></video>
+          <canvas id="overlay-canvas"></canvas>
+          <canvas id="ui-canvas"></canvas>
+        </div>
+      </div>
+      <div id="timeline" class="timeline"></div>
+    </section>
+
+    <aside class="side right">
+      <section id="inspector" class="panel inspector"></section>
+    </aside>
+  </main>
+
+  <dialog id="export-dialog" class="dialog">
+    <form method="dialog" class="dialog-head">
+      <h2>Export overlay</h2>
+      <button class="icon" value="close" title="Close">✕</button>
+    </form>
+    <div id="export-body"></div>
+  </dialog>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+[
+  { "id": "autocross", "file": "autocross.json" },
+  { "id": "track", "file": "track.json" },
+  { "id": "rally", "file": "rally.json" },
+  { "id": "blank", "file": "blank.json" }
+]

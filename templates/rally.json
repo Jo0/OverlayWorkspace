@@ -1,0 +1,24 @@
+{
+  "schema": "overlay-template/1",
+  "id": "rally",
+  "name": "Rally / point-to-point stage",
+  "sessionType": "rally",
+  "description": "One stage per lap: stage timer, progress along the stage, distance to the finish, speed, stage map.",
+  "canvas": { "width": 3840, "height": 2160 },
+  "theme": "default",
+  "timing": { "comparison": "best" },
+  "elements": [
+    { "id": "timer", "type": "laptimer", "name": "Stage timer", "x": 110, "y": 100, "w": 1100, "h": 360, "anchor": "tl",
+      "props": { "title": "STAGE {lap}", "showLast": false, "showBest": true, "bestLabel": "BEST" } },
+    { "id": "progress", "type": "bar", "name": "Stage progress", "x": 1320, "y": 120, "w": 1200, "h": 70, "anchor": "tc",
+      "props": { "channel": "timing.progress", "unit": "%", "min": 0, "max": 100, "orientation": "horizontal", "label": "", "fill": "accent" } },
+    { "id": "remaining", "type": "readout", "name": "Distance to finish", "x": 1670, "y": 230, "w": 500, "h": 220, "anchor": "tc",
+      "props": { "channel": "timing.remaining", "unit": "mi", "decimals": 2, "digits": 2, "label": "MI TO FINISH" } },
+    { "id": "map", "type": "trackmap", "name": "Stage map", "x": 2880, "y": 90, "w": 860, "h": 860, "anchor": "tr",
+      "props": { "scope": "lap", "showDriven": true } },
+    { "id": "speed", "type": "dial", "name": "Speed", "x": 110, "y": 1340, "w": 720, "h": 720, "anchor": "bl",
+      "props": { "channel": "@speed", "unit": "mph", "min": 0, "max": 120, "majorStep": 20, "label": "MPH" } },
+    { "id": "g", "type": "gcircle", "name": "G-force", "x": 3240, "y": 1460, "w": 500, "h": 500, "anchor": "br",
+      "props": { "max": 1.2 } }
+  ]
+}

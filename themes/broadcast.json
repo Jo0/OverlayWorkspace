@@ -1,0 +1,32 @@
+{
+  "schema": "overlay-theme/1",
+  "id": "broadcast",
+  "name": "Broadcast (skewed, condensed)",
+  "colors": {
+    "text": "#FFFFFF",
+    "muted": "#C9CED6",
+    "panel": "rgba(16,18,24,0.86)",
+    "border": "#E10600",
+    "accent": "#E10600",
+    "good": "#00D26A",
+    "bad": "#FF3B30",
+    "track": "rgba(255,255,255,0.55)",
+    "marker": "#E10600",
+    "grid": "rgba(255,255,255,0.2)"
+  },
+  "fonts": {
+    "display": { "family": "Bahnschrift, 'DIN Alternate', 'Arial Narrow', sans-serif", "weight": 700 },
+    "number": { "family": "Bahnschrift, 'DIN Alternate', 'Arial Narrow', sans-serif", "weight": 600, "tabular": true },
+    "label": { "family": "Bahnschrift, 'DIN Alternate', 'Arial Narrow', sans-serif", "weight": 400, "letterSpacing": 0.12 }
+  },
+  "panel": {
+    "shape": "skew",
+    "skew": 40,
+    "fill": "panel",
+    "stroke": "border",
+    "strokeWidth": 0,
+    "padding": 34,
+    "shadow": { "color": "rgba(0,0,0,0.5)", "blur": 0, "x": 12, "y": 12 }
+  },
+  "line": { "width": 10, "cap": "butt" }
+}

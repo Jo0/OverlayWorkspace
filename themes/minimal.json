@@ -1,0 +1,35 @@
+{
+  "schema": "overlay-theme/1",
+  "id": "minimal",
+  "name": "Minimal (no panels)",
+  "colors": {
+    "text": "#FFFFFF",
+    "muted": "rgba(255,255,255,0.8)",
+    "panel": "rgba(0,0,0,0.25)",
+    "border": "rgba(0,0,0,0)",
+    "accent": "#4FC3F7",
+    "good": "#69F0AE",
+    "bad": "#FF8A80",
+    "track": "rgba(255,255,255,0.7)",
+    "marker": "#4FC3F7",
+    "grid": "rgba(255,255,255,0.3)"
+  },
+  "fonts": {
+    "display": { "family": "system-ui, 'Segoe UI', sans-serif", "weight": 800 },
+    "number": { "family": "system-ui, 'Segoe UI', sans-serif", "weight": 800, "tabular": true },
+    "label": { "family": "system-ui, 'Segoe UI', sans-serif", "weight": 700, "letterSpacing": 0.1 }
+  },
+  "panel": {
+    "shape": "none",
+    "fill": "none",
+    "stroke": "none",
+    "strokeWidth": 0,
+    "padding": 0,
+    "shadow": { "color": "rgba(0,0,0,0)", "blur": 0, "x": 0, "y": 0 }
+  },
+  "line": { "width": 8, "cap": "round" },
+  "text": {
+    "stroke": { "color": "rgba(0,0,0,0.55)", "width": 0.09 },
+    "shadow": { "color": "rgba(0,0,0,0.6)", "blur": 0.12, "x": 0, "y": 0.03 }
+  }
+}

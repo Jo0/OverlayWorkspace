@@ -1,0 +1,10 @@
+{
+  "schema": "overlay-template/1",
+  "id": "blank",
+  "name": "Blank",
+  "sessionType": "custom",
+  "description": "An empty 4K canvas. Add elements from the toolbar.",
+  "canvas": { "width": 3840, "height": 2160 },
+  "theme": "default",
+  "elements": []
+}

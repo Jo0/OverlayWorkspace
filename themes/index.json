@@ -1,0 +1,5 @@
+[
+  { "id": "default", "file": "default.json" },
+  { "id": "broadcast", "file": "broadcast.json" },
+  { "id": "minimal", "file": "minimal.json" }
+]

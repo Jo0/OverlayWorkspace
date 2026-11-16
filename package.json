@@ -1,0 +1,10 @@
+{
+  "name": "overlay-workspace",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based telemetry overlay editor and renderer for lap timer exports",
+  "scripts": {
+    "serve": "python tools/serve.py",
+    "test": "node --test test/*.test.js"
+  }
+}

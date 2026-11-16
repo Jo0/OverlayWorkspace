@@ -1,0 +1,28 @@
+{
+  "schema": "overlay-template/1",
+  "id": "track",
+  "name": "Track day",
+  "sessionType": "track",
+  "description": "Continuous laps over a whole fragment. Lap timer with last/best, live delta to the comparison lap, speed dial, RPM bar, track map.",
+  "canvas": { "width": 3840, "height": 2160 },
+  "theme": "default",
+  "timing": { "comparison": "best" },
+  "elements": [
+    { "id": "timer", "type": "laptimer", "name": "Lap timer", "x": 110, "y": 100, "w": 1100, "h": 430, "anchor": "tl",
+      "props": { "title": "LAP {lap}", "showLast": true, "showBest": true } },
+    { "id": "delta", "type": "delta", "name": "Delta", "x": 1320, "y": 100, "w": 1200, "h": 260, "anchor": "tc",
+      "props": { "label": "Δ BEST", "decimals": 2, "range": 2 } },
+    { "id": "map", "type": "trackmap", "name": "Track map", "x": 2880, "y": 90, "w": 860, "h": 860, "anchor": "tr",
+      "props": { "scope": "lap" } },
+    { "id": "speed", "type": "dial", "name": "Speed", "x": 110, "y": 1340, "w": 720, "h": 720, "anchor": "bl",
+      "props": { "channel": "@speed", "unit": "mph", "min": 0, "max": 140, "majorStep": 20, "label": "MPH" } },
+    { "id": "throttle", "type": "bar", "name": "Throttle", "x": 870, "y": 1700, "w": 110, "h": 360, "anchor": "bl",
+      "props": { "channel": "@throttle", "label": "THR", "fill": "good" } },
+    { "id": "brake", "type": "bar", "name": "Brake", "x": 1010, "y": 1700, "w": 110, "h": 360, "anchor": "bl",
+      "props": { "channel": "@brake", "label": "BRK", "fill": "bad" } },
+    { "id": "rpm", "type": "bar", "name": "RPM", "x": 1420, "y": 1950, "w": 1000, "h": 110, "anchor": "bc",
+      "props": { "channel": "@rpm", "unit": "rpm", "min": 0, "max": 7500, "orientation": "horizontal", "label": "RPM", "fill": "accent", "segments": 20, "showValue": true } },
+    { "id": "g", "type": "gcircle", "name": "G-force", "x": 3240, "y": 1460, "w": 500, "h": 500, "anchor": "br",
+      "props": { "max": 1.5 } }
+  ]
+}
