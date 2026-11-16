@@ -53,7 +53,9 @@ function buildHeader() {
     const f = await pickFile(".json,application/json");
     if (!f) return;
     try {
-      setTemplate(JSON.parse(await f.text()));
+      const text = await f.text();
+      if (!text.trim()) throw new Error("the file is empty (0 bytes). It was probably saved by an earlier version that could fail silently; save the layout again");
+      setTemplate(JSON.parse(text));
       setStatus(`Opened ${f.name}.`, "ok");
     } catch (e) {
       setStatus(`Couldn't open ${f.name}: ${e.message}`, "error");
@@ -61,7 +63,17 @@ function buildHeader() {
   });
   $("#btn-save").addEventListener("click", async () => {
     const name = (state.template.name || "overlay").replace(/[^\w.-]+/g, "_");
-    if (await saveTextFile(serializeTemplate(state.template), `${name}.template.json`)) setStatus("Template saved.", "ok");
+    try {
+      const r = await saveTextFile(serializeTemplate(state.template), `${name}.template.json`);
+      if (r.status === "saved") setStatus(`Saved ${r.name}.`, "ok");
+      else if (r.status === "downloaded") {
+        setStatus(r.reason
+          ? `Couldn't write to the chosen file (${r.reason}), so it was downloaded as ${r.name} instead. Check your Downloads folder.`
+          : `Downloaded ${r.name}.`, r.reason ? "warn" : "ok");
+      }
+    } catch (e) {
+      setStatus(`Couldn't save the template: ${e.message}`, "error");
+    }
   });
   $("#btn-undo").addEventListener("click", () => history.undo());
   $("#btn-redo").addEventListener("click", () => history.redo());

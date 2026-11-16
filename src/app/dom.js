@@ -48,26 +48,47 @@ export function pickFiles(accept) {
   });
 }
 
+/**
+ * Saves text through the browser's save dialog, or as a download where there
+ * is none. Returns { status: "saved" | "downloaded" | "cancelled", reason? }.
+ *
+ * Embedded browsers (the Claude app's pane among them) can create the picked
+ * file and then fail to write it, sometimes reporting AbortError as if the
+ * user had cancelled. That left empty files behind, so a write that fails or
+ * comes out the wrong size falls back to a download instead.
+ */
 export async function saveTextFile(text, suggestedName, type = "application/json") {
+  const blob = new Blob([text], { type });
   if (window.showSaveFilePicker) {
+    let handle;
     try {
-      const handle = await window.showSaveFilePicker({ suggestedName, types: [{ description: "JSON", accept: { [type]: [".json"] } }] });
-      const w = await handle.createWritable();
-      await w.write(text);
-      await w.close();
-      return true;
+      handle = await window.showSaveFilePicker({ suggestedName, types: [{ description: "JSON", accept: { [type]: [".json"] } }] });
     } catch (e) {
-      if (e.name === "AbortError") return false;
-      throw e;
+      if (e.name === "AbortError") return { status: "cancelled" };
+      return { ...download(blob, suggestedName), reason: e.message || e.name };
+    }
+    try {
+      const w = await handle.createWritable();
+      await w.write(blob);
+      await w.close();
+      const written = await handle.getFile();
+      if (written.size !== blob.size) throw new Error(`only ${written.size} of ${blob.size} bytes were written`);
+      return { status: "saved", name: handle.name };
+    } catch (e) {
+      return { ...download(blob, suggestedName), reason: e.message || e.name };
     }
   }
-  const url = URL.createObjectURL(new Blob([text], { type }));
+  return download(blob, suggestedName);
+}
+
+function download(blob, suggestedName) {
+  const url = URL.createObjectURL(blob);
   const a = h("a", { href: url, download: suggestedName });
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
-  return true;
+  return { status: "downloaded", name: suggestedName };
 }
 
 export function clear(el) {
