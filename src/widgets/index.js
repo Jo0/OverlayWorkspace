@@ -6,3 +6,4 @@ import "./basic.js";
 import "./timing.js";
 import "./gauges.js";
 import "./map.js";
+import "./trace.js";

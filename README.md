@@ -142,7 +142,7 @@ src/main.js               startup: loads templates/themes, builds the UI
 src/config.js             per-deployment settings (support link, source link)
 src/core/                 data model, timing, units, templates, themes, registries
 src/importers/            one file per data format (RaceChrono CSV v3 so far)
-src/widgets/              overlay elements (readout, timer, delta, dial, bar, G circle, map, text, shape, image)
+src/widgets/              overlay elements (readout, timer, delta, delta pane, dial, bar, trace graph, G circle, map, text, shape, image)
 src/render/               renderer, drawing helpers, panel shapes
 src/export/               WebCodecs exporter, MP4 writer, file sinks
 src/video/                video recording time, DJI GPS track, NMEA reader
