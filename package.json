@@ -1,6 +1,7 @@
 {
   "name": "overlay-workspace",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Browser-based telemetry overlay editor and renderer for lap timer exports",
   "scripts": {

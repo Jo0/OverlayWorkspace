@@ -203,3 +203,7 @@ startup (same-origin paths only).
 - [ ] Official times / penalties per lap (autocross cones), shown on the timer
 - [ ] Multi-select, alignment tools, element groups
 - [ ] Web font picker; theme editor that can save a theme file
+
+## License
+
+MIT, see [LICENSE](LICENSE). Use it, fork it, host it; keep the copyright notice.
