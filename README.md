@@ -80,6 +80,13 @@ exports download instead.
      "vs SESSION" / "vs THEO" label on the map says which. You can set the
      comparison and the colors in the map's settings, or choose *One color*
      for a plain trail.
+   - **Run timer colors:** turn on *Color the time by the delta* in the run
+     timer's settings and the running time turns green while you're ahead of
+     the comparison and red while you're behind. It uses the same comparison
+     choices and best-lap fallback as the map, and the title shows which
+     ("RUN 10 · vs THEO"). Within half a hundredth it keeps its normal color.
+     Turn off *Also color the final time by the delta* to keep the usual
+     finished color for the final time.
 4. **Load the video and sync it** to preview the overlay on your footage. The
    file's recording time is the first guess; the camera clock is usually off.
    - **Auto-sync from GPS:** for a DJI Osmo Action with a GPS remote, the app

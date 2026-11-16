@@ -9,7 +9,7 @@ import { P } from "./common.js";
 widgets.register({
   id: "laptimer",
   label: "Lap / run timer",
-  description: "Running time of the current lap or run. Holds the final time after the finish. Optional last and best rows.",
+  description: "Running time of the current lap or run. Holds the final time after the finish. Optional last and best rows. Can turn green/red while you're ahead of/behind a comparison.",
   defaults: {
     w: 1100,
     h: 420,
@@ -26,6 +26,12 @@ widgets.register({
       waitingColor: "muted",
       panel: true,
       align: "left",
+      colorByDelta: false,
+      deltaCompare: "auto",
+      deltaFinished: true,
+      showCompare: true,
+      gainColor: "good",
+      lossColor: "bad",
     },
   },
   props: [
@@ -40,6 +46,18 @@ widgets.register({
     P.color("color", "Running color"),
     P.color("finishedColor", "Finished color"),
     P.color("waitingColor", "Waiting color"),
+    { key: "colorByDelta", label: "Color the time by the delta (green ahead, red behind)", type: "bool" },
+    { key: "deltaCompare", label: "Delta compared against", type: "select", options: [
+      { value: "auto", label: "Auto: session best; theoretical on the best lap" },
+      { value: "session", label: "Session best (theoretical on the best lap)" },
+      { value: "so-far", label: "Best so far (theoretical on the first lap)" },
+      { value: "theoretical", label: "Theoretical best" },
+      { value: "template", label: "Template setting" },
+    ] },
+    { key: "deltaFinished", label: "Also color the final time by the delta", type: "bool" },
+    { key: "showCompare", label: "Show what it compares against in the title", type: "bool" },
+    P.color("gainColor", "Ahead color"),
+    P.color("lossColor", "Behind color"),
     P.panel,
   ],
   draw(ctx, { w, h, props, theme, frame }) {
@@ -52,18 +70,34 @@ widgets.register({
     const x = props.align === "right" ? box.x + box.w : props.align === "center" ? box.x + box.w / 2 : box.x;
     let y = box.y;
 
+    const elapsed = tc ? tc.elapsed : NaN;
+    const state = tc ? tc.state : "none";
+    // Optional: color by the delta against a comparison that is never the lap
+    // itself (the best lap falls back to the theoretical best), like the map.
+    let deltaColor = null, compareLabel = "";
+    if (props.colorByDelta && tc && tc.lap && frame.engine && (state === "in" || state === "after")) {
+      const pick = frame.engine.comparisonWithFallback(props.deltaCompare, tc.lap);
+      if (pick) {
+        compareLabel = pick.label;
+        const { delta } = frame.engine.deltaAgainst(pick.cmp, tc.lap, state, frame.t);
+        // Within half a hundredth it's even: keep the normal color, no flicker.
+        if (Number.isFinite(delta) && Math.abs(delta) >= 0.005 && (state === "in" || props.deltaFinished)) {
+          deltaColor = delta < 0 ? props.gainColor : props.lossColor;
+        }
+      }
+    }
+
     if (props.title) {
-      const title = props.title.replace("{lap}", tc && Number.isFinite(tc.lapNumber) ? tc.lapNumber : "-");
+      let title = props.title.replace("{lap}", tc && Number.isFinite(tc.lapNumber) ? tc.lapNumber : "-");
+      if (compareLabel && props.showCompare) title += `  ·  vs ${compareLabel}`;
       drawText(ctx, theme, title, x, y + titleH * CAP + titleH * 0.1, { role: "label", size: titleH, color: "muted", align: props.align });
       y += titleH * 1.3;
     }
 
-    const elapsed = tc ? tc.elapsed : NaN;
-    const state = tc ? tc.state : "none";
     const text = formatLapTime(Number.isFinite(elapsed) ? elapsed : 0, props.decimals, props.format);
     const sample = formatLapTime(88.888, props.decimals, props.format === "auto" ? "m:ss" : props.format).replace(/\d/g, "0");
     const size = fitSize(ctx, theme, "number", sample, box.w, mainH / CAP);
-    const col = state === "after" ? props.finishedColor : state === "in" ? props.color : props.waitingColor;
+    const col = deltaColor || (state === "after" ? props.finishedColor : state === "in" ? props.color : props.waitingColor);
     drawText(ctx, theme, text, x, y + (mainH + size * CAP) / 2, { role: "number", size, color: col, align: props.align });
     y += mainH + (rows ? rowH * 0.3 : 0);
 
