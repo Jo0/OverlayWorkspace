@@ -15,6 +15,51 @@ export function initExportDialog() {
   $("#btn-export").addEventListener("click", open);
 }
 
+let hardwareEncode; // cached promise: does this browser offer a hardware H.264 encoder?
+
+/**
+ * Firefox (as of 160) only gives pages a software H.264 encoder, which makes
+ * 4K exports about three times slower than Chrome or Edge on the GPU. Checked
+ * by capability rather than by browser name, so it stops showing once
+ * Firefox gains hardware encoding.
+ */
+function checkHardwareEncode() {
+  if (!hardwareEncode) {
+    hardwareEncode = typeof VideoEncoder === "undefined"
+      ? Promise.resolve(false)
+      : VideoEncoder.isConfigSupported({ codec: "avc1.640028", width: 1920, height: 1080, bitrate: 8e6, framerate: 30, avc: { format: "avc" }, hardwareAcceleration: "prefer-hardware" })
+        .then((r) => r.supported, () => false);
+  }
+  return hardwareEncode;
+}
+
+/** Notice at the top of the export dialog when exports will run in software. */
+function softwareEncodeNotice() {
+  const box = h("div", { class: "notice", hidden: true });
+  checkHardwareEncode().then((hw) => {
+    if (hw) return;
+    // navigator.userAgentData exists only in Chromium browsers (Chrome, Edge, …).
+    if (navigator.userAgentData) {
+      box.append(
+        h("strong", {}, "No hardware video encoder found."),
+        h("p", {}, "Export will run in software, which is several times slower at 4K. Check that hardware acceleration is on in the browser's settings and that the graphics driver is current (chrome://gpu shows what's available)."));
+    } else {
+      const address = location.origin + location.pathname;
+      const copy = h("button", { class: "small", type: "button" }, "Copy address");
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(address); copy.textContent = "Copied"; } catch { copy.textContent = address; }
+      });
+      box.append(
+        h("strong", {}, "For faster exports, use Chrome or Edge."),
+        h("p", {}, "This browser encodes video in software only. Chrome and Edge use the graphics card and export about three times faster: a 70 s run at 4K 59.94 takes around 6 minutes here. They can also write straight into a folder instead of downloading."),
+        h("p", {}, "To switch: ", h("em", {}, "Save…"), " your layout, open this address in Chrome or Edge, ", h("em", {}, "Open…"), " the layout there and load the data file (and video) again. Each browser keeps its own autosave, so the layout doesn't carry over by itself."),
+        h("div", { class: "notice-actions" }, h("code", {}, address), copy));
+    }
+    box.hidden = false;
+  });
+  return box;
+}
+
 function sanitize(s) {
   return (s || "overlay").replace(/\.[^.]+$/, "").replace(/[^\w.-]+/g, "_").replace(/_+/g, "_").slice(0, 80);
 }
@@ -190,6 +235,7 @@ function open() {
   };
 
   body.append(
+    softwareEncodeNotice(),
     h("label", { class: "field" }, h("span", { class: "field-label" }, "What to export"), scopeSel),
     lapOpts,
     h("div", { class: "grid-2" },
