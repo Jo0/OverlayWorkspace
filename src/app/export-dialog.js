@@ -158,7 +158,11 @@ function open() {
             ptext.textContent = `${rs.length > 1 ? `[${k + 1}/${rs.length}] ` : ""}${r.name}: frame ${done}/${total} · ${info.fps.toFixed(1)} fps · ${Math.ceil(eta)} s left`;
           },
         });
-        const meta = sidecar({ template: state.template, session: state.session, t0: r.t0, t1: r.t1, fps, width, height, video: state.video && scopeSel.value !== "each-lap" ? state.video : null, colorFile: files.color, alphaFile: files.alpha });
+        // Name the loaded clip only for a range that's actually in it: a lap
+        // from another run would otherwise claim this clip in its JSON.
+        const v = state.video;
+        const inClip = v && Number.isFinite(v.duration) && r.t0 < v.clipStart + v.duration && r.t1 > v.clipStart;
+        const meta = sidecar({ template: state.template, session: state.session, t0: r.t0, t1: r.t1, fps, width, height, video: inClip ? v : null, colorFile: files.color, alphaFile: files.alpha });
         meta.encoder = { codec: res.codec, hardwareAcceleration: res.hardwareAcceleration, seconds: Math.round(res.seconds * 10) / 10 };
         const json = JSON.stringify(meta, null, 2);
         if (dir) {
