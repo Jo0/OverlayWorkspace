@@ -8,6 +8,7 @@
     "panel": "rgba(0,0,0,0.25)",
     "border": "rgba(0,0,0,0)",
     "accent": "#4FC3F7",
+    "neutral": "#4FC3F7",
     "good": "#69F0AE",
     "bad": "#FF8A80",
     "track": "rgba(255,255,255,0.7)",

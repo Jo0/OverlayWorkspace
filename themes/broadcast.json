@@ -8,10 +8,11 @@
     "panel": "rgba(16,18,24,0.86)",
     "border": "#E10600",
     "accent": "#E10600",
+    "neutral": "#FFD200",
     "good": "#00D26A",
     "bad": "#FF3B30",
     "track": "rgba(255,255,255,0.55)",
-    "marker": "#E10600",
+    "marker": "#FFFFFF",
     "grid": "rgba(255,255,255,0.2)"
   },
   "fonts": {

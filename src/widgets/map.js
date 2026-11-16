@@ -16,7 +16,7 @@ widgets.register({
     w: 900,
     h: 900,
     props: {
-      scope: "lap", rotate: 0, line: "track", lineWidth: 12, driven: "accent", showDriven: true, dot: "marker", dotSize: 22, mirror: false, panel: false,
+      scope: "lap", rotate: 0, line: "track", lineWidth: 12, driven: "neutral", showDriven: true, dot: "marker", dotSize: 22, mirror: false, panel: false,
       drivenStyle: "delta", deltaCompare: "auto", gainColor: "good", lossColor: "bad", neutralBand: 0.03, showLegend: true,
     },
   },

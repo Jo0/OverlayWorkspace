@@ -12,6 +12,9 @@ export const DEFAULT_THEME = {
     panel: "rgba(8,10,14,0.6)",
     border: "rgba(255,255,255,0.14)",
     accent: "#FFB000",
+    // Highlights that mean "no gain or loss" (even stretches on the map, a
+    // finished time): must stay clearly apart from good and bad.
+    neutral: "#FFB000",
     good: "#2ED47A",
     bad: "#FF4D4D",
     track: "rgba(255,255,255,0.45)",

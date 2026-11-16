@@ -53,7 +53,27 @@ export function normalizeTemplate(t) {
       style: raw.style || null,
     });
   }
+  if (!(t.colorRoles >= COLOR_ROLES)) migrateColorRoles(out.elements);
+  out.colorRoles = COLOR_ROLES;
   return out;
+}
+
+// Version of the theme color roles that element props refer to.
+//  2: "neutral" added. Before it, the map's even/one-color trail, the run
+//     timer's finished time and trace line 3 defaulted to "accent", which in a
+//     theme with a red accent (Broadcast) looked exactly like a loss.
+const COLOR_ROLES = 2;
+const NEUTRAL_MIGRATION = { trackmap: ["driven"], laptimer: ["finishedColor"], trace: ["color3"] };
+
+/** Moves props still at the old "accent" default onto "neutral". Saved
+ *  templates keep every prop explicit, so changing a default alone wouldn't
+ *  reach them. */
+function migrateColorRoles(elements) {
+  for (const el of elements) {
+    for (const key of NEUTRAL_MIGRATION[el.type] || []) {
+      if (el.props[key] === "accent") el.props[key] = "neutral";
+    }
+  }
 }
 
 function num(v, d) {

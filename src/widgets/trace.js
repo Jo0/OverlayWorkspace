@@ -36,7 +36,7 @@ widgets.register({
       panel: true,
       ...seriesProps(1, "@throttle", "good", "THR", 0, 100, "%"),
       ...seriesProps(2, "@brake", "bad", "BRK", 0, 100, "%"),
-      ...seriesProps(3, "", "accent", "", 0, 100, ""),
+      ...seriesProps(3, "", "neutral", "", 0, 100, ""),
     },
   },
   props: [

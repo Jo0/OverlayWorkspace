@@ -22,7 +22,7 @@ widgets.register({
       lastLabel: "LAST",
       bestLabel: "BEST",
       color: "text",
-      finishedColor: "accent",
+      finishedColor: "neutral",
       waitingColor: "muted",
       panel: true,
       align: "left",

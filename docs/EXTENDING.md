@@ -144,9 +144,9 @@ the delta bar and the Shape element.
   "name": "Night",
   "colors": {                 // any names; widgets default to these:
     "text": "#FFFFFF", "muted": "rgba(255,255,255,.6)", "panel": "rgba(0,0,0,.6)",
-    "border": "rgba(255,255,255,.15)", "accent": "#FFB000", "good": "#2ED47A",
-    "bad": "#FF4D4D", "track": "rgba(255,255,255,.45)", "marker": "#FFB000",
-    "grid": "rgba(255,255,255,.16)"
+    "border": "rgba(255,255,255,.15)", "accent": "#FFB000", "neutral": "#FFB000",
+    "good": "#2ED47A", "bad": "#FF4D4D", "track": "rgba(255,255,255,.45)",
+    "marker": "#FFB000", "grid": "rgba(255,255,255,.16)"
   },
   "fonts": {                  // roles; widgets use display, number, label
     "display": { "family": "Oswald, sans-serif", "weight": 600 },
@@ -169,6 +169,21 @@ the delta bar and the Shape element.
 ```
 
 Then add `{ "id": "night", "file": "night.json" }` to `themes/index.json`.
+
+Color roles with a meaning:
+
+- **`good` / `bad`:** gaining and losing time (map trail, run timer, delta
+  bars), also throttle and brake.
+- **`neutral`:** highlights that mean neither: map stretches where you're
+  about even, the finished run time.
+- **`accent`:** the theme's brand color, free to be any hue. Nothing that
+  could be read as a gain or loss uses it, so a red accent (Broadcast) is
+  fine.
+- **`marker`:** the position dot, drawn on top of the gain/loss trail.
+
+Keep `neutral`, `marker` and `track` clearly apart from `good` and `bad`.
+`test/themes.test.js` checks every bundled theme for this (color difference
+ΔE ≥ 25, judged over dark asphalt); add yours to `index.json` and run it.
 
 Font notes:
 
