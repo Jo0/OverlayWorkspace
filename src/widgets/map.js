@@ -3,7 +3,7 @@
 
 import { widgets } from "../core/registry.js";
 import { color } from "../core/theme.js";
-import { drawPanel } from "../render/draw.js";
+import { drawPanel, drawText } from "../render/draw.js";
 import { P } from "./common.js";
 
 const MAX_POINTS = 3000;
@@ -11,11 +11,14 @@ const MAX_POINTS = 3000;
 widgets.register({
   id: "trackmap",
   label: "Track map",
-  description: "GPS path with a position dot. Scope: the current lap/run, its fragment, or the whole session.",
+  description: "GPS path with a position dot. Scope: the current lap/run, its fragment, or the whole session. The driven part can be colored by where you gained (green) or lost (red) time against a comparison.",
   defaults: {
     w: 900,
     h: 900,
-    props: { scope: "lap", rotate: 0, line: "track", lineWidth: 12, driven: "accent", showDriven: true, dot: "marker", dotSize: 22, mirror: false, panel: false },
+    props: {
+      scope: "lap", rotate: 0, line: "track", lineWidth: 12, driven: "accent", showDriven: true, dot: "marker", dotSize: 22, mirror: false, panel: false,
+      drivenStyle: "delta", deltaCompare: "auto", gainColor: "good", lossColor: "bad", neutralBand: 0.03, showLegend: true,
+    },
   },
   props: [
     { key: "scope", label: "Path shown", type: "select", options: ["lap", "fragment", "session"] },
@@ -24,7 +27,22 @@ widgets.register({
     P.color("line", "Line color"),
     { key: "lineWidth", label: "Line width", type: "number", min: 1, max: 100, step: 1 },
     { key: "showDriven", label: "Highlight driven part", type: "bool" },
-    P.color("driven", "Driven color"),
+    { key: "drivenStyle", label: "Driven part", type: "select", options: [
+      { value: "delta", label: "Gain/loss colors (vs. comparison)" },
+      { value: "solid", label: "One color" },
+    ] },
+    { key: "deltaCompare", label: "Gain/loss compared against", type: "select", options: [
+      { value: "auto", label: "Auto: session best; theoretical on the best lap" },
+      { value: "session", label: "Session best (theoretical on the best lap)" },
+      { value: "so-far", label: "Best so far (theoretical on the first lap)" },
+      { value: "theoretical", label: "Theoretical best" },
+      { value: "template", label: "Template setting" },
+    ] },
+    P.color("gainColor", "Gaining color"),
+    P.color("lossColor", "Losing color"),
+    { key: "neutralBand", label: "Even band (s lost/gained per s)", type: "number", min: 0, max: 1, step: 0.01 },
+    { key: "showLegend", label: "Show what it compares against", type: "bool" },
+    P.color("driven", "Driven color (one color, or even stretches)"),
     P.color("dot", "Dot color"),
     { key: "dotSize", label: "Dot radius", type: "number", min: 1, max: 200, step: 1 },
     P.panel,
@@ -54,18 +72,28 @@ widgets.register({
     ctx.stroke(m.path);
 
     const t = Math.min(range[1], Math.max(range[0], frame.t));
+    let legend = null;
     if (props.showDriven && frame.t > range[0]) {
       const n = upTo(m.times, t);
+      const here = m.project(lat.at(t), lon.at(t));
+      const classes = props.drivenStyle === "delta" ? gainLoss(m, frame, props, cache) : null;
+      if (classes) legend = classes.label;
       if (n > 1) {
-        ctx.beginPath();
-        ctx.moveTo(m.xs[0], m.ys[0]);
-        for (let i = 1; i < n; i++) ctx.lineTo(m.xs[i], m.ys[i]);
-        const p = m.project(lat.at(t), lon.at(t));
-        if (p) ctx.lineTo(p.x, p.y);
-        ctx.strokeStyle = color(theme, props.driven);
-        ctx.stroke();
+        const colorOf = (c) => color(theme, c < 0 ? props.gainColor : c > 0 ? props.lossColor : props.driven);
+        // Consecutive segments of the same class are stroked as one path.
+        let i = 1;
+        while (i < n) {
+          const c = classes ? classes.cls[i] : 0;
+          ctx.beginPath();
+          ctx.moveTo(m.xs[i - 1], m.ys[i - 1]);
+          while (i < n && (classes ? classes.cls[i] : 0) === c) { ctx.lineTo(m.xs[i], m.ys[i]); i++; }
+          if (i === n && here) ctx.lineTo(here.x, here.y);
+          ctx.strokeStyle = colorOf(c);
+          ctx.stroke();
+        }
       }
     }
+    if (legend && props.showLegend) drawLegend(ctx, theme, box, props, legend);
     const p = m.project(lat.at(t), lon.at(t));
     if (p) {
       ctx.beginPath();
@@ -78,6 +106,63 @@ widgets.register({
     }
   },
 });
+
+/**
+ * Per path point: -1 gaining, +1 losing, 0 about even, against the chosen
+ * comparison over roughly the last second (how fast the delta is changing).
+ * Only points on the current lap are classed. Cached per lap and comparison.
+ */
+function gainLoss(m, frame, props, cache) {
+  const tc = frame.timing, engine = frame.engine;
+  const lap = tc && tc.lap;
+  if (!engine || !lap || tc.state === "before") return null;
+  const pick = engine.comparisonWithFallback(props.deltaCompare, lap);
+  if (!pick) return null;
+  const key = [m.key, lap.number, pick.label, pick.cmp.number, pick.cmp.duration, props.neutralBand].join("|");
+  let g = cache.get("gainLoss");
+  if (g && g.key === key) return g;
+
+  const n = m.times.length;
+  const d = new Float64Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) {
+    const t = m.times[i];
+    if (t >= lap.start && t < lap.end) d[i] = engine.deltaAgainst(pick.cmp, lap, "in", t).delta;
+  }
+  const cls = new Int8Array(n);
+  const half = 0.5; // seconds either side
+  let a = 0, b = 0;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(d[i])) continue;
+    const t = m.times[i];
+    while (a < i && (m.times[a] < t - half || !Number.isFinite(d[a]))) a++;
+    if (b < i) b = i;
+    while (b + 1 < n && m.times[b + 1] <= t + half && Number.isFinite(d[b + 1])) b++;
+    const dt = m.times[b] - m.times[a];
+    if (dt <= 0) continue;
+    const rate = (d[b] - d[a]) / dt; // seconds lost per second driven
+    cls[i] = rate < -props.neutralBand ? -1 : rate > props.neutralBand ? 1 : 0;
+  }
+  g = { key, cls, label: pick.label };
+  cache.set("gainLoss", g);
+  return g;
+}
+
+function drawLegend(ctx, theme, box, props, label) {
+  const size = Math.max(14, Math.min(box.h * 0.045, 48));
+  const y = box.y + box.h - size * 0.4;
+  let x = box.x;
+  drawText(ctx, theme, `vs ${label}`, x, y, { role: "label", size, color: "text" });
+  x += ctx.measureText(`vs ${label}`).width + size;
+  for (const [text, col] of [["GAIN", props.gainColor], ["LOSS", props.lossColor]]) {
+    ctx.fillStyle = color(theme, col);
+    ctx.beginPath();
+    ctx.roundRect(x, y - size * 0.55, size * 1.4, size * 0.4, size * 0.2);
+    ctx.fill();
+    x += size * 1.8;
+    drawText(ctx, theme, text, x, y, { role: "label", size: size * 0.8, color: "muted" });
+    x += ctx.measureText(text).width + size;
+  }
+}
 
 function scopeRange(scope, frame) {
   const s = frame.session;

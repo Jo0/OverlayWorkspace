@@ -4,6 +4,8 @@
 
 import { Channel } from "./session.js";
 
+const MODE_LABELS = { session: "SESSION", "so-far": "BEST", theoretical: "THEO" };
+
 export class Timing {
   constructor(session) {
     this.session = session;
@@ -73,6 +75,21 @@ export class Timing {
       case "theoretical": return this.theoreticalLap();
       default: return this.comparisonLap();
     }
+  }
+
+  /**
+   * Comparison for `mode` that never compares a lap with itself: "auto" means
+   * the session best, and whenever the chosen comparison is the lap itself
+   * (watching the best lap) or doesn't exist yet, the theoretical best stands
+   * in. Returns { cmp, label, fallback } or null if nothing is available.
+   */
+  comparisonWithFallback(mode, lap) {
+    const m = !mode || mode === "auto" ? "session" : mode;
+    let cmp = this.comparisonFor(m, lap);
+    let label = m === "template" ? this.comparisonLabel() : MODE_LABELS[m] || "";
+    if (cmp && cmp !== lap) return { cmp, label, fallback: false };
+    const theo = this.theoreticalLap();
+    return theo ? { cmp: theo, label: "THEO", fallback: true } : null;
   }
 
   /**

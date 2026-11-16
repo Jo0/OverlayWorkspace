@@ -213,3 +213,17 @@ test("delta modes: session, best so far, theoretical, and the lap compared with 
   assert.equal(deltaDisplay({ delta: -0.25, self: false }, 2, "good", "bad").color, "good");
   assert.equal(deltaDisplay({ delta: 0.25, self: false }, 2, "good", "bad").text, "+0.25");
 });
+
+test("map comparison falls back to the theoretical best on the best lap", () => {
+  const { text } = syntheticCsv();
+  const s = parseRaceChronoV3(text);
+  const tm = new Timing(s);
+  const [lap1, lap2] = s.laps; // lap 2 is the session best
+  assert.deepEqual(
+    (({ cmp, label, fallback }) => ({ n: cmp.number, label, fallback }))(tm.comparisonWithFallback("auto", lap1)),
+    { n: 2, label: "SESSION", fallback: false });
+  const best = tm.comparisonWithFallback("auto", lap2);
+  assert.ok(best.cmp.theoretical && best.label === "THEO" && best.fallback, "best lap: theoretical instead of itself");
+  const first = tm.comparisonWithFallback("so-far", lap1);
+  assert.equal(first.label, "THEO", "first lap has no best-so-far: theoretical");
+});

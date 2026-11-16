@@ -73,6 +73,13 @@ exports download instead.
      nothing to compare against (the best lap against itself, or the first lap
      for Δ BEST) shows a muted `-.--`. A value that rounds to 0.00 stays
      muted, so it doesn't flicker red and green.
+   - **Gain/loss on the map:** the track map colors the part already driven
+     green where you gained time and red where you lost it, judged over about
+     a second. The default (*Auto*) compares against the session best and
+     switches to the theoretical best when you're watching the best lap. A
+     "vs SESSION" / "vs THEO" label on the map says which. You can set the
+     comparison and the colors in the map's settings, or choose *One color*
+     for a plain trail.
 4. **Load the video and sync it** to preview the overlay on your footage. The
    file's recording time is the first guess; the camera clock is usually off.
    - **Auto-sync from GPS:** for a DJI Osmo Action with a GPS remote, the app

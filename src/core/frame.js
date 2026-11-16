@@ -23,6 +23,7 @@ export function makeFrame(session, timing, t, cache) {
     t,
     session,
     timing: tc,
+    engine: timing, // the Timing object, for widgets that need deltas at other times
     cache,
     value(ref) {
       if (!ref) return NaN;
