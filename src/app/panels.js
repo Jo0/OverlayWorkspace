@@ -97,9 +97,9 @@ function buildDataPanel() {
   const mode = state.template.timing.comparison;
   const cmpText = !cmp ? "Comparison: -"
     : cmp.theoretical ? `Comparison: theoretical ${formatLapTime(cmp.duration)} (best of ${cmp.sections.length} sections; ${formatLapTime(best ? best.duration - cmp.duration : NaN)} under the best lap)`
-    : `Comparison: lap ${cmp.number}${mode === "best" ? " (best)" : mode === "theoretical" ? " (best; theoretical needs 2+ laps)" : ""}`;
+    : `Comparison: lap ${cmp.number}${mode === "best" ? " (session best)" : mode === "theoretical" ? " (session best; theoretical needs 2+ laps)" : ""}`;
   root.append(table, h("div", { class: "row-inline small muted" }, h("span", {}, cmpText)),
-    h("div", { class: "row-inline" }, compareTo("best", "Compare to best"), compareTo("theoretical", "Compare to theoretical")));
+    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")));
 }
 
 // ── Video ────────────────────────────────────────────────────────────────────

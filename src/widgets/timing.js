@@ -84,17 +84,57 @@ widgets.register({
   },
 });
 
+const COMPARE_OPTIONS = [
+  { value: "template", label: "Template setting" },
+  { value: "session", label: "Session best (hindsight)" },
+  { value: "so-far", label: "Best so far (what a live timer showed)" },
+  { value: "theoretical", label: "Theoretical best" },
+];
+
+/**
+ * How a delta is shown. No comparison (NaN, or the lap compared with itself,
+ * e.g. the best lap against "best") shows "-.--" in the muted color. A value
+ * that rounds to zero stays muted, so it doesn't flicker red/green.
+ */
+export function deltaDisplay({ delta, self }, decimals, gainColor, lossColor) {
+  if (self || !Number.isFinite(delta)) return { text: `-.${"-".repeat(Math.max(1, decimals))}`, color: "muted", value: NaN };
+  const text = formatDelta(delta, decimals);
+  if (Number(text) === 0) return { text, color: "muted", value: 0 };
+  return { text, color: delta < 0 ? gainColor : lossColor, value: delta };
+}
+
+function deltaBar(ctx, theme, x, y, w, hgt, value, range, colorRef, barShape) {
+  shapePath(ctx, barShape, x, y, w, hgt, { radius: hgt / 2 });
+  ctx.fillStyle = color(theme, "grid");
+  ctx.fill();
+  if (Number.isFinite(value) && value !== 0) {
+    const frac = Math.max(-1, Math.min(1, value / range));
+    const mid = x + w / 2;
+    const len = (w / 2) * Math.abs(frac);
+    // Losing time fills to the right, gaining to the left.
+    const x0 = frac >= 0 ? mid : mid - len;
+    if (len > 0.5) {
+      shapePath(ctx, barShape, x0, y, len, hgt, { radius: Math.min(hgt / 2, len / 2) });
+      ctx.fillStyle = color(theme, colorRef);
+      ctx.fill();
+    }
+  }
+  ctx.fillStyle = color(theme, "text");
+  ctx.fillRect(x + w / 2 - 2, y - hgt * 0.15, 4, hgt * 1.3);
+}
+
 widgets.register({
   id: "delta",
   label: "Delta to comparison lap",
-  description: "Time gained or lost against the comparison lap (session best by default), as a number and a bar.",
+  description: "Time gained or lost against a comparison (template setting, session best, best so far, or theoretical), as a number and a bar. Shows -.-- when there's nothing to compare against, e.g. the best lap against itself.",
   defaults: {
     w: 1200,
     h: 260,
-    props: { label: "Δ {cmp}", decimals: 2, range: 2, showBar: true, gainColor: "good", lossColor: "bad", panel: true, barShape: "rounded" },
+    props: { compare: "template", label: "Δ {cmp}", decimals: 2, range: 2, showBar: true, gainColor: "good", lossColor: "bad", panel: true, barShape: "rounded" },
   },
   props: [
-    { key: "label", label: "Label ({cmp} = BEST / THEO / LAP n)", type: "text" },
+    { key: "compare", label: "Compare against", type: "select", options: COMPARE_OPTIONS },
+    { key: "label", label: "Label ({cmp} = SESSION / BEST / THEO / LAP n)", type: "text" },
     P.decimals,
     { key: "range", label: "Bar range (± seconds)", type: "number", min: 0.1, max: 30, step: 0.1 },
     { key: "showBar", label: "Show bar", type: "bool" },
@@ -105,40 +145,73 @@ widgets.register({
   ],
   draw(ctx, { w, h, props, theme, frame }) {
     const box = props.panel ? drawPanel(ctx, w, h, theme) : { x: 0, y: 0, w, h };
-    const d = frame.timing ? frame.timing.delta : NaN;
-    const col = !Number.isFinite(d) ? "muted" : d <= 0 ? props.gainColor : props.lossColor;
+    const r = frame.deltaFor(props.compare);
+    const shown = deltaDisplay(r, props.decimals, props.gainColor, props.lossColor);
     const barH = props.showBar ? box.h * 0.26 : 0;
     const textH = box.h - (barH ? barH * 1.35 : 0);
-    const labelSize = props.label ? textH * 0.36 : 0; // sized from the template text
-    const valText = formatDelta(d, props.decimals);
-    const label = (props.label || "").replace("{cmp}", (frame.timing && frame.timing.comparisonLabel) || "BEST");
+    const labelSize = props.label ? textH * 0.36 : 0;
+    const label = (props.label || "").replace("{cmp}", r.label || "SESSION");
     const valSize = fitSize(ctx, theme, "number", "+00." + "0".repeat(props.decimals), box.w * 0.6, (textH / CAP) * 0.9);
     const baseline = box.y + (textH + valSize * CAP) / 2;
     if (props.label) {
       drawText(ctx, theme, label, box.x, baseline, { role: "label", size: labelSize, color: "muted" });
-      drawText(ctx, theme, valText, box.x + box.w, baseline, { role: "number", size: valSize, color: col, align: "right" });
+      drawText(ctx, theme, shown.text, box.x + box.w, baseline, { role: "number", size: valSize, color: shown.color, align: "right" });
     } else {
-      drawText(ctx, theme, valText, box.x + box.w / 2, baseline, { role: "number", size: valSize, color: col, align: "center" });
+      drawText(ctx, theme, shown.text, box.x + box.w / 2, baseline, { role: "number", size: valSize, color: shown.color, align: "center" });
     }
-    if (barH) {
-      const by = box.y + box.h - barH;
-      shapePath(ctx, props.barShape, box.x, by, box.w, barH, { radius: barH / 2 });
-      ctx.fillStyle = color(theme, "grid");
-      ctx.fill();
-      if (Number.isFinite(d)) {
-        const frac = Math.max(-1, Math.min(1, d / props.range));
-        const mid = box.x + box.w / 2;
-        const len = (box.w / 2) * Math.abs(frac);
-        // Losing time fills to the right, gaining to the left.
-        const x0 = frac >= 0 ? mid : mid - len;
-        if (len > 0.5) {
-          shapePath(ctx, props.barShape, x0, by, len, barH, { radius: Math.min(barH / 2, len / 2) });
-          ctx.fillStyle = color(theme, col);
-          ctx.fill();
-        }
-      }
-      ctx.fillStyle = color(theme, "text");
-      ctx.fillRect(box.x + box.w / 2 - 2, by - barH * 0.15, 4, barH * 1.3);
-    }
+    if (barH) deltaBar(ctx, theme, box.x, box.y + box.h - barH, box.w, barH, shown.value, props.range, shown.color, props.barShape);
+  },
+});
+
+widgets.register({
+  id: "deltas",
+  label: "Delta pane (session / best / theoretical)",
+  description: "Several deltas stacked in one panel: against the session best (hindsight), the best lap before this one (what a live timer showed), and the theoretical best. Each row shows -.-- when it has nothing to compare against.",
+  defaults: {
+    w: 1200,
+    h: 420,
+    props: {
+      showSession: true, sessionLabel: "Δ SESSION",
+      showBest: true, bestLabel: "Δ BEST",
+      showTheo: true, theoLabel: "Δ THEO",
+      decimals: 2, range: 2, showBars: true, gainColor: "good", lossColor: "bad", panel: true, barShape: "rounded",
+    },
+  },
+  props: [
+    { key: "showSession", label: "Row: session best (hindsight)", type: "bool" },
+    { key: "sessionLabel", label: "Session label", type: "text" },
+    { key: "showBest", label: "Row: best so far (live-timer view)", type: "bool" },
+    { key: "bestLabel", label: "Best-so-far label", type: "text" },
+    { key: "showTheo", label: "Row: theoretical best", type: "bool" },
+    { key: "theoLabel", label: "Theoretical label", type: "text" },
+    P.decimals,
+    { key: "range", label: "Bar range (± seconds)", type: "number", min: 0.1, max: 30, step: 0.1 },
+    { key: "showBars", label: "Show bars", type: "bool" },
+    { key: "barShape", label: "Bar shape", type: "shape" },
+    P.color("gainColor", "Gaining color"),
+    P.color("lossColor", "Losing color"),
+    P.panel,
+  ],
+  draw(ctx, { w, h, props, theme, frame }) {
+    const box = props.panel ? drawPanel(ctx, w, h, theme) : { x: 0, y: 0, w, h };
+    const rows = [
+      props.showSession && ["session", props.sessionLabel],
+      props.showBest && ["so-far", props.bestLabel],
+      props.showTheo && ["theoretical", props.theoLabel],
+    ].filter(Boolean);
+    if (!rows.length) return;
+    const rowH = box.h / rows.length;
+    const barH = props.showBars ? rowH * 0.16 : 0;
+    const textH = rowH - (barH ? barH * 1.6 : 0);
+    const valSize = fitSize(ctx, theme, "number", "+00." + "0".repeat(props.decimals), box.w * 0.55, (textH / CAP) * 0.78);
+    const labelSize = Math.min(valSize * 0.5, textH * 0.42);
+    rows.forEach(([mode, label], i) => {
+      const y = box.y + i * rowH;
+      const shown = deltaDisplay(frame.deltaFor(mode), props.decimals, props.gainColor, props.lossColor);
+      const baseline = y + (textH + valSize * CAP) / 2;
+      drawText(ctx, theme, label || "", box.x, baseline, { role: "label", size: labelSize, color: "muted" });
+      drawText(ctx, theme, shown.text, box.x + box.w, baseline, { role: "number", size: valSize, color: shown.color, align: "right" });
+      if (barH) deltaBar(ctx, theme, box.x, y + textH + barH * 0.2, box.w, barH, shown.value, props.range, shown.color, props.barShape);
+    });
   },
 });

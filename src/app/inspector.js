@@ -192,7 +192,7 @@ function buildTemplate() {
       history.push();
       build();
     })),
-    row("Delta compares against", selectInput(comparisonChoices(), String(t.timing.comparison), (v) => {
+    row("Delta compares against (when a delta uses \"Template setting\")", selectInput(comparisonChoices(), String(t.timing.comparison), (v) => {
       t.timing.comparison = v === "best" || v === "theoretical" ? v : Number(v);
       applyComparison();
       emit("element", null);
@@ -257,7 +257,7 @@ function buildTemplate() {
 
 function comparisonChoices() {
   const out = [
-    { value: "best", label: "Best lap (excluding skipped laps)" },
+    { value: "best", label: "Session best lap (excluding skipped laps)" },
     { value: "theoretical", label: "Theoretical best (fastest sections of all laps)" },
   ];
   if (state.session) for (const l of state.session.laps) out.push({ value: String(l.number), label: `Lap ${l.number}` });

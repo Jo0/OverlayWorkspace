@@ -183,5 +183,33 @@ test("theoretical best stitches the fastest sections of different laps", async (
   s.laps[1].excluded = true;
   tm.invalidate();
   assert.equal(tm.comparisonLap().number, 1);
-  assert.equal(tm.comparisonLabel(), "BEST");
+  assert.equal(tm.comparisonLabel(), "SESSION");
+});
+
+test("delta modes: session, best so far, theoretical, and the lap compared with itself", async () => {
+  const { makeFrame } = await import("../src/core/frame.js");
+  const { deltaDisplay } = await import("../src/widgets/timing.js");
+  const { text, t0, pre, lap1, lap2 } = syntheticCsv();
+  const s = parseRaceChronoV3(text);
+  const tm = new Timing(s);
+  // Lap 2 (36 s) is the session best; lap 1 (40 s) came first.
+  const inLap1 = makeFrame(s, tm, t0 + pre + 20, new Map());
+  assert.ok(Math.abs(inLap1.deltaFor("session").delta - 2) < 0.1, "lap 1 halfway vs session best (lap 2)");
+  const soFar1 = inLap1.deltaFor("so-far");
+  assert.ok(Number.isNaN(soFar1.delta) && !soFar1.self, "nothing before lap 1 to compare with");
+  assert.equal(soFar1.label, "BEST");
+
+  const inLap2 = makeFrame(s, tm, t0 + pre + lap1 + 18, new Map());
+  const self = inLap2.deltaFor("session");
+  assert.ok(self.self && Number.isNaN(self.delta), "the session-best lap against itself has no delta");
+  assert.ok(Math.abs(inLap2.deltaFor("so-far").delta - -2) < 0.1, "lap 2 halfway vs lap 1");
+  assert.ok(Number.isFinite(inLap2.deltaFor("theoretical").delta), "theoretical is never the lap itself");
+  assert.ok(inLap2.timing.deltaSelf, "template comparison (best) on the best lap: self");
+
+  // Display: no comparison → "-.--" muted; rounding to zero → muted, not red/green.
+  assert.deepEqual(deltaDisplay(self, 2, "good", "bad"), { text: "-.--", color: "muted", value: NaN });
+  assert.equal(deltaDisplay({ delta: 0.004, self: false }, 2, "good", "bad").color, "muted");
+  assert.equal(deltaDisplay({ delta: -0.004, self: false }, 2, "good", "bad").text, "0.00");
+  assert.equal(deltaDisplay({ delta: -0.25, self: false }, 2, "good", "bad").color, "good");
+  assert.equal(deltaDisplay({ delta: 0.25, self: false }, 2, "good", "bad").text, "+0.25");
 });

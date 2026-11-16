@@ -59,8 +59,20 @@ exports download instead.
      lap. Each lap is cut into equal parts (10 by default; set it in the
      template inspector). More parts give a lower, more optimistic target. On
      2026-11-15 it was 1:08.136 with 10 parts, against a best lap of 1:08.849.
-     Write `{cmp}` in a delta label to show what it compares against: "Δ THEO",
-     "Δ BEST" or "Δ LAP 7".
+     How the parts are found: RaceChrono's "optimal lap" needs sectors defined
+     on the track, and an autocross course has none. Here every lap is cut at
+     the same fractions of its own GPS distance (10 %, 20 %, …). On the same
+     course those fractions land on nearly the same spot each lap, within a
+     few metres, because the lines differ slightly.
+   - **Delta pane:** the *Deltas* element shows up to three rows. Δ SESSION
+     compares against the session's best lap, in hindsight (run 3 against run
+     10). Δ BEST compares against the best lap before this one, which is what
+     a live lap timer would have shown. Δ THEO compares against the
+     theoretical best. A single *Delta* element can use any of these, or the
+     template setting; write `{cmp}` in its label to show which. A row with
+     nothing to compare against (the best lap against itself, or the first lap
+     for Δ BEST) shows a muted `-.--`. A value that rounds to 0.00 stays
+     muted, so it doesn't flicker red and green.
 4. **Load the video and sync it** to preview the overlay on your footage. The
    file's recording time is the first guess; the camera clock is usually off.
    - **Auto-sync from GPS:** for a DJI Osmo Action with a GPS remote, the app

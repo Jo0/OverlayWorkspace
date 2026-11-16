@@ -53,9 +53,49 @@ export class Timing {
     const c = this.comparisonLap();
     if (!c) return "";
     if (c.theoretical) return "THEO";
-    // "theoretical" with too few laps falls back to the best lap
-    if (this.comparison === "best" || this.comparison === "theoretical") return "BEST";
+    // "theoretical" with too few laps falls back to the session's best lap
+    if (this.comparison === "best" || this.comparison === "theoretical") return "SESSION";
     return `LAP ${c.number}`;
+  }
+
+  /**
+   * The lap to compare `lap` against, for a comparison mode:
+   *   "session"     best lap of the whole session (hindsight: may come later)
+   *   "so-far"      best lap finished before `lap` started (what a live lap
+   *                 timer would have shown)
+   *   "theoretical" the theoretical best (null with fewer than two laps)
+   *   "template"    whatever the template's comparison setting says
+   */
+  comparisonFor(mode, lap) {
+    switch (mode) {
+      case "session": return this.bestLap();
+      case "so-far": return lap ? this.bestLap(lap.start) : null;
+      case "theoretical": return this.theoreticalLap();
+      default: return this.comparisonLap();
+    }
+  }
+
+  /**
+   * Delta of `lap` (in `state` at time t) against `cmp`.
+   * Returns { delta, self }: self is true when the lap would be compared with
+   * itself (watching the best lap against "best"), where there's no meaningful
+   * delta, so delta is NaN and widgets show "-.--".
+   */
+  deltaAgainst(cmp, lap, state, t) {
+    if (!cmp || !lap) return { delta: NaN, self: false };
+    if (cmp === lap) return { delta: NaN, self: true };
+    if (state === "after") return { delta: lap.duration - cmp.duration, self: false };
+    if (state !== "in") return { delta: NaN, self: false };
+    const prof = this.profile(cmp);
+    const distance = this.lapDistance(lap, t);
+    if (!prof || !Number.isFinite(distance)) return { delta: NaN, self: false };
+    // Every lap's driven line is a little longer or shorter, so compare at the
+    // same fraction of the lap rather than the same metre. We know the whole
+    // lap (this runs after the session), so the delta ends exactly at the
+    // final time difference instead of jumping at the finish.
+    const own = this.profile(lap);
+    const scaled = own && own.total > 0 ? distance * (prof.total / own.total) : distance;
+    return { delta: (t - lap.start) - timeAtDistance(prof, scaled), self: false };
   }
 
   /**
@@ -171,25 +211,19 @@ export class Timing {
 
     const cmp = this.comparisonLap();
     const prof = this.profile(cmp);
-    let delta = NaN, distance = NaN, progress = NaN, remaining = NaN, predicted = NaN;
+    const { delta, self: deltaSelf } = this.deltaAgainst(cmp, lap, state, t);
+    let distance = NaN, progress = NaN, remaining = NaN, predicted = NaN;
     if (lap && state === "in") {
       distance = this.lapDistance(lap, t);
-      if (prof && Number.isFinite(distance)) {
-        // Every lap's driven line is a little longer or shorter, so compare at
-        // the same fraction of the lap rather than the same metre. We know the
-        // whole lap (this runs after the session), so the delta ends exactly
-        // at the final time difference instead of jumping at the finish.
-        const own = this.profile(lap);
-        const scaled = own && own.total > 0 ? distance * (prof.total / own.total) : distance;
-        delta = elapsed - timeAtDistance(prof, scaled);
-        predicted = cmp.duration + delta;
-        const total = own ? own.total : prof.total;
-        progress = total > 0 ? Math.min(1, Math.max(0, distance / total)) : NaN;
+      const own = this.profile(lap);
+      const total = own ? own.total : prof ? prof.total : NaN;
+      if (Number.isFinite(distance) && total > 0) {
+        progress = Math.min(1, Math.max(0, distance / total));
         remaining = Math.max(0, total - distance);
       }
+      if (cmp) predicted = deltaSelf ? lap.duration : cmp.duration + delta;
     } else if (lap && state === "after") {
       distance = this.lapDistance(lap, lap.end);
-      if (cmp) delta = lap.duration - cmp.duration;
       progress = 1;
       remaining = 0;
     } else if (state === "before") {
@@ -214,6 +248,7 @@ export class Timing {
       comparison: cmp,
       comparisonLabel: this.comparisonLabel(),
       delta,
+      deltaSelf,
       predicted,
       distance,
       progress,

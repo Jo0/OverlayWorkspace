@@ -104,6 +104,9 @@ What `draw` gets:
     `timing.lap`, `timing.progress`, `timing.distance`, `timing.remaining`, and `timing.target` (the comparison lap's time: best, theoretical or chosen).
   - `frame.timing`: the full lap context (state, lap, last, best,
     comparison...).
+  - `frame.deltaFor(mode)`: the delta against `"session"`, `"so-far"`,
+    `"theoretical"` or `"template"`, as `{ delta, self, label }`. `self` means
+    the lap would be compared with itself, so there's no delta to show.
   - `frame.session`: the session, for paths and history.
 - **`theme`:** already merged with the element's style override. Use
   `color(theme, ref)` for color references (a theme color name or any CSS

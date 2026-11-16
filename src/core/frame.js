@@ -15,6 +15,8 @@ export const VIRTUAL_CHANNELS = {
   "timing.remaining": { label: "Distance to finish", dimension: "distance" },
 };
 
+export const DELTA_LABELS = { session: "SESSION", "so-far": "BEST", theoretical: "THEO" };
+
 export function makeFrame(session, timing, t, cache) {
   const tc = timing ? timing.context(t) : null;
   return {
@@ -28,6 +30,15 @@ export function makeFrame(session, timing, t, cache) {
       const ch = session && session.channel(ref);
       if (!ch) return NaN;
       return ch.role === "gear" ? ch.stepAt(t) : ch.at(t);
+    },
+    /** Delta against a comparison mode ("session", "so-far", "theoretical",
+     *  "template"): { delta, self, label }. See Timing.comparisonFor(). */
+    deltaFor(mode) {
+      if (!tc || !timing) return { delta: NaN, self: false, label: "" };
+      if (!mode || mode === "template") return { delta: tc.delta, self: tc.deltaSelf, label: tc.comparisonLabel };
+      const cmp = timing.comparisonFor(mode, tc.lap);
+      const r = timing.deltaAgainst(cmp, tc.lap, tc.state, t);
+      return { ...r, label: DELTA_LABELS[mode] || "" };
     },
     dimension(ref) {
       if (!ref) return "none";
