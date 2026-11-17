@@ -29,6 +29,8 @@ importers.register({
   label: "MyTimer CSV",
   extensions: [".csv"],
   help: "In MyTimer: Session → Share → CSV.",
+  // Shown in the empty Data panel: be honest about what real files it has seen.
+  tested: { level: "untested", text: "Not yet tried on a real MyTimer export." }, // level: real | partial | untested
   // Return 0..1: how sure you are this is your format. `head` is the first 64 KB as text.
   detect: (head, file) => (head.startsWith("MyTimer export") ? 1 : 0),
   async parse(file) {

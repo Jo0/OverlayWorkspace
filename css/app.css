@@ -269,3 +269,9 @@ table.results select { max-width: 150px; }
 button.on { border-color: var(--accent); color: var(--accent); }
 .csv-preview { max-height: 150px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; }
 .csv-preview table.laps td, .csv-preview table.laps th { white-space: nowrap; }
+
+/* Supported formats (empty Data panel) */
+ul.formats { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+ul.formats .tested { margin-top: 2px; }
+ul.formats .tested.real { color: var(--ok); }
+ul.formats .tested.partial, ul.formats .tested.untested { color: var(--warn); }

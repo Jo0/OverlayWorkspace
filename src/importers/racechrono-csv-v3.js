@@ -178,6 +178,7 @@ importers.register({
   label: "RaceChrono CSV v3",
   extensions: [".csv"],
   help: "In RaceChrono Pro: open the session → Export → CSV v3 (.csv), scope: whole session.",
+  tested: { level: "real", text: "Tested with real RaceChrono Pro sessions." },
   detect: (head) => detectRaceChronoV3(head),
   async parse(file) {
     return parseRaceChronoV3(await file.text(), { fileName: file.name });

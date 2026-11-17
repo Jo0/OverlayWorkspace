@@ -25,14 +25,23 @@ alpha matte that any editor (or ffmpeg) can put over your footage.
 **Use it online: <https://jo0.github.io/OverlayWorkspace/>** (nothing to
 install; your files still stay on your computer).
 
-Data sources:
+Data sources, and how far each has been tested:
 
-- **RaceChrono Pro** CSV v3 (the best: laps, every channel).
-- **VBO** files: Racelogic VBOX, and the VBO exports of RaceChrono, Harry's
-  LapTimer and TrackAddict. Laps come from the start/finish lines in the file.
-- **Any other CSV** with a header row (TrackAddict, AiM Race Studio export,
-  RaceCapture, a spreadsheet...): you confirm which column is time, position,
-  speed and lap once, and it's remembered for files laid out the same way.
+| Format | How it loads | Tested with |
+|---|---|---|
+| **RaceChrono Pro** CSV v3 | Laps and every channel | Real sessions ✅ |
+| **VBO** from RaceChrono | Laps from the start/finish lines in the file | Real exports ✅ (matches the CSV of the same session) |
+| **VBO** from a Racelogic VBOX, Harry's LapTimer, TrackAddict | Same importer | ⚠️ Untested: no sample files. Column names and the start/finish line format may differ |
+| **TrackAddict** CSV | Any-CSV importer: you confirm the columns | ⚠️ Untested with a real export (built from forum descriptions) |
+| **RaceCapture** log | Any-CSV importer | ⚠️ Untested with a real log (header format taken from its open-source firmware) |
+| **AiM Race Studio** CSV | Any-CSV importer, laps from its beacon markers | ⚠️ Untested: never seen a real export, so this is the shakiest |
+| **Any other CSV** with a header row | You pick time, position, speed and lap once per layout | Synthetic files |
+
+None of these formats except VBO publishes a specification, so a real file is
+the only way to be sure. If yours doesn't load right, please
+[open an issue](https://github.com/Jo0/OverlayWorkspace/issues) with a sample.
+It holds your GPS track, so share a short one, or one from a place you don't
+mind showing.
 
 Data without laps gets them from start/finish lines you place on the track.
 More lap timers and loggers plug in as importers; see

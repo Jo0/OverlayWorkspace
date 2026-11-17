@@ -169,6 +169,7 @@ importers.register({
   label: "VBO (VBOX, RaceChrono, Harry's LapTimer, TrackAddict)",
   extensions: [".vbo"],
   help: "VBO files from a Racelogic VBOX, or exported as VBO from RaceChrono, Harry's LapTimer or TrackAddict. A session split into several files (RaceChrono: _start, _resume…) can be loaded together: select them all.",
+  tested: { level: "partial", text: "Tested with RaceChrono's VBO export. VBOs from a VBOX, Harry's LapTimer or TrackAddict are untested: their column names or start/finish lines may differ." },
   detect: (head) => (/^\[header\]/im.test(head) && /^\[(column names|data)\]/im.test(head) ? 0.95 : 0),
   async parse(file) {
     return parseVbo(await file.text(), file.name);

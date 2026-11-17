@@ -1,5 +1,6 @@
 // Left-hand panels: data (session + laps), video (load, flip, sync), layers.
 
+import { CONFIG } from "../config.js";
 import { importers, widgets } from "../core/registry.js";
 import { groupMembers, makeGroup, moveLayer, newGroupId, normalizeGroups, ungroup } from "../core/arrange.js";
 import { newElementId, normalizeTemplate } from "../core/template.js";
@@ -74,8 +75,15 @@ function buildDataPanel() {
     h("button", { class: "primary", title: "Select several files to load a session that was split across files", onclick: async () => { const fs = await pickFiles(accept); if (fs.length) loadDataFile(fs); } }, "Load data…")));
   const s = state.session;
   if (!s) {
-    root.append(h("p", { class: "muted small" }, "Supported: ", importers.list().map((i) => i.label).join(", "), "."),
-      ...importers.list().filter((i) => i.help).map((i) => h("p", { class: "muted small" }, i.help)));
+    // What each format is, how to get it, and how well it's been tested.
+    root.append(h("ul", { class: "formats" }, importers.list().map((i) => h("li", {},
+      h("strong", { class: "small" }, i.label),
+      i.help ? h("div", { class: "muted small" }, i.help) : null,
+      i.tested ? h("div", { class: `small tested ${i.tested.level}` }, i.tested.text) : null))));
+    const issues = CONFIG.sourceUrl ? `${CONFIG.sourceUrl}/issues` : null;
+    root.append(h("p", { class: "muted small" }, "A file that doesn't load right, or a format that's missing? ",
+      issues ? h("a", { href: issues, target: "_blank", rel: "noopener" }, "Open an issue") : "Report it",
+      " with a sample file. It holds your GPS track, so share a short one, or one from somewhere you don't mind showing."));
     return;
   }
   const dur = s.end - s.start;

@@ -266,6 +266,7 @@ importers.register({
   label: "Other CSV / text (pick the columns)",
   extensions: [".csv", ".txt", ".tsv"],
   help: "Any CSV with a header row (TrackAddict, AiM Race Studio export, RaceCapture, a spreadsheet...): you confirm which column is time, position, speed and lap, once per layout.",
+  tested: { level: "untested", text: "Not yet tried on a real TrackAddict, AiM or RaceCapture export (built from their descriptions; no sample files). Check the columns it picks." },
   // Low, so a dedicated importer always wins.
   detect: (head) => (sniffTable(head, 10) ? 0.1 : 0),
   /** ctx.askMapping(table, guess, { remembered }) -> mapping or null (cancel). */
