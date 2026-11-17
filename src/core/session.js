@@ -121,3 +121,39 @@ export class Session {
     return this.laps.filter((l) => l.fragment === fragmentId);
   }
 }
+
+/**
+ * Joins sessions recorded one after another (a session split across files,
+ * like RaceChrono's _start / _resume VBO files) into one. Channels with the
+ * same id are concatenated; fragments and laps are renumbered in time order.
+ */
+export function mergeSessions(sessions) {
+  const list = sessions.filter(Boolean).sort((a, b) => a.start - b.start);
+  if (list.length === 1) return list[0];
+  const fragments = [], laps = [], byId = new Map();
+  for (const s of list) {
+    const remap = new Map();
+    for (const f of s.fragments) {
+      const id = fragments.length;
+      remap.set(f.id, id);
+      fragments.push({ ...f, id });
+    }
+    for (const l of s.laps) laps.push({ number: laps.length + 1, start: l.start, end: l.end, fragment: remap.get(l.fragment) ?? 0 });
+    for (const c of s.channels) {
+      if (!byId.has(c.id)) byId.set(c.id, { info: c, parts: [] });
+      byId.get(c.id).parts.push(c);
+    }
+  }
+  const channels = [...byId.values()].map(({ info, parts }) => {
+    const n = parts.reduce((a, c) => a + c.times.length, 0);
+    const times = new Float64Array(n), values = new Float64Array(n);
+    let o = 0;
+    for (const c of parts) { times.set(c.times, o); values.set(c.values, o); o += c.times.length; }
+    const { times: _t, values: _v, ...rest } = info;
+    return new Channel(rest, times, values);
+  });
+  const meta = { ...list[0].meta, fileName: list.map((s) => s.meta.fileName).filter(Boolean).join(" + ") };
+  const merged = new Session({ meta, channels, laps, fragments });
+  merged.gates = list.find((s) => s.gates)?.gates || null;
+  return merged;
+}

@@ -9,6 +9,7 @@
 import { importers } from "../core/registry.js";
 import { Channel, Session } from "../core/session.js";
 import { normalizeValues } from "../core/units.js";
+import { ENGINE_ROLE_PATTERNS } from "../core/roles.js";
 
 // Column name → role. First column with a given role wins (GPS before calc).
 const ROLE_BY_NAME = {
@@ -24,15 +25,7 @@ const ROLE_BY_NAME = {
   lean_angle: "lean",
 };
 // Looser patterns for channels whose names depend on the user's CAN/OBD setup.
-const ROLE_PATTERNS = [
-  [/(^|_)(engine_)?rpm$/i, "rpm"],
-  [/throttle|accelerator|pedal_pos/i, "throttle"],
-  [/brake/i, "brake"],
-  [/steer/i, "steering"],
-  [/(^|_)gear/i, "gear"],
-  [/coolant/i, "coolant_temp"],
-  [/oil_temp/i, "oil_temp"],
-];
+const ROLE_PATTERNS = ENGINE_ROLE_PATTERNS;
 const SKIP = new Set(["timestamp", "fragment_id", "lap_number", "elapsed_time"]);
 
 function splitCsvLine(line) {

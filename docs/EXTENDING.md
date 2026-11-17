@@ -60,9 +60,27 @@ Rules:
   can: speed, latitude, longitude, distance, lat_g, lon_g, rpm, throttle,
   brake, gear, steering... Without a distance channel, timing integrates speed.
 - **Laps** need `start`/`end`. For a point-to-point stage, the stage is a "lap".
-- Keep `parse` free of DOM code where you can (take the text, return a
-  Session), so it can be unit-tested with `node --test`. See
-  `test/core.test.js`.
+- **No laps in the format?** If the file has timing gates (VBO's
+  `[laptiming]`), turn them into `{ start, finish }` gates and call
+  `findLaps(track, gates, fragments)` from `src/core/laps.js`; set
+  `session.gates` so the Start/finish lines dialog shows them. Otherwise return
+  no laps: the user places lines on the track and laps are found then.
+- **Roles from column names:** `guessRole(name)` (`src/core/roles.js`) knows
+  the usual spellings (`velocity kmh`, `Speed (MPH)`, `latacc`, `Engine RPM`...).
+  Give each role to one channel only.
+- **Sessions split across files:** add `parseMany(files, ctx)`, or leave it
+  out and the files are parsed one by one and joined with `mergeSessions()`
+  (`src/core/session.js`).
+- **Asking the user:** `parse(file, ctx)` gets `ctx.askMapping(table, guess,
+  file)` from the app, which the generic CSV importer uses for its column
+  dialog. Throw an error with `cancelled: true` if the user cancels.
+- **Detect scores:** 0.9+ for a format you're sure of. The generic CSV importer
+  answers 0.1 for any table, so a dedicated importer always wins.
+- **Real files are the spec** for most formats. Get a sample export, check
+  the units and sign conventions against something you trust (another export
+  of the same session is ideal), and write unit tests with synthetic data
+  shaped like it. Keep real files out of the repo: they hold someone's GPS
+  track. See `test/importers.test.js`.
 
 ## Widgets
 

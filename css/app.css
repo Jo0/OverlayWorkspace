@@ -1,6 +1,9 @@
 /* OverlayWorkspace editor shell. A dark UI, like most video tools, so the
    footage and overlay read true. */
 
+/* The hidden attribute always wins over display rules such as .field { display: grid }. */
+[hidden] { display: none !important; }
+
 :root {
   --bg: #0e1116;
   --bg-2: #151a21;
@@ -260,3 +263,9 @@ table.results tr.focus td { background: #1d3550; }
 .results-wrap { max-height: 300px; overflow-y: auto; margin-bottom: 10px; }
 table.results input.narrow, input.narrow { width: 90px; }
 table.results select { max-width: 150px; }
+
+/* Start/finish lines and CSV columns */
+.laps-map { display: block; border: 1px solid var(--line); border-radius: var(--radius); cursor: crosshair; touch-action: none; max-width: 100%; }
+button.on { border-color: var(--accent); color: var(--accent); }
+.csv-preview { max-height: 150px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; }
+.csv-preview table.laps td, .csv-preview table.laps th { white-space: nowrap; }

@@ -12,6 +12,8 @@ import { readGoProTrack } from "../video/gopro-gps.js";
 import { parseNmea } from "../video/nmea.js";
 import { matchClockOffset } from "../core/gps-sync.js";
 import { $, clear, h, pickFile, pickFiles } from "./dom.js";
+import { askCsvMapping } from "./csv-mapping-dialog.js";
+import { openLapsDialog } from "./laps-dialog.js";
 import { openResultsDialog } from "./results-dialog.js";
 import { saveResults } from "./results-store.js";
 import { getVideoElement, seekVideoToTime } from "./stage.js";
@@ -40,14 +42,25 @@ export function initPanels() {
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
-export async function loadDataFile(file) {
-  setStatus(`Reading ${file.name}…`);
+/**
+ * Loads one data file, or several files of one session together (RaceChrono
+ * splits VBO exports into _start / _resume files). forceMapping re-asks the
+ * columns of a generic CSV even when a mapping is remembered.
+ */
+export async function loadDataFile(fileOrFiles, { forceMapping = false } = {}) {
+  const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+  if (!files.length) return;
+  const names = files.map((f) => f.name).join(", ");
+  setStatus(`Reading ${names}…`);
   try {
-    const s = await importData(file);
+    const s = await importData(files, { askMapping: (table, guess, file) => askCsvMapping(table, guess, file, { force: forceMapping }) });
+    s.sourceFiles = files; // for "Columns…" (re-import with other columns)
     setSession(s);
     if (state.video) autoAlignVideo();
-    setStatus(`Loaded ${file.name}: ${s.laps.length} laps, ${s.channels.length} channels.`, "ok");
+    const lapsNote = s.laps.length ? `${s.laps.length} laps` : "no laps yet (set start/finish lines in the Data panel)";
+    setStatus(`Loaded ${names}: ${lapsNote}, ${s.channels.length} channels.`, s.laps.length ? "ok" : "warn");
   } catch (e) {
+    if (e.cancelled) { setStatus("Import cancelled."); return; }
     console.error(e);
     setStatus(e.message, "error");
   }
@@ -58,7 +71,7 @@ function buildDataPanel() {
   const accept = [...new Set(importers.list().flatMap((i) => i.extensions || []))].join(",");
   root.append(h("div", { class: "panel-head" },
     h("h2", {}, "Data"),
-    h("button", { class: "primary", onclick: async () => { const f = await pickFile(accept); if (f) loadDataFile(f); } }, "Load data…")));
+    h("button", { class: "primary", title: "Select several files to load a session that was split across files", onclick: async () => { const fs = await pickFiles(accept); if (fs.length) loadDataFile(fs); } }, "Load data…")));
   const s = state.session;
   if (!s) {
     root.append(h("p", { class: "muted small" }, "Supported: ", importers.list().map((i) => i.label).join(", "), "."),
@@ -71,8 +84,17 @@ function buildDataPanel() {
     s.meta.track && s.meta.track !== s.meta.title ? h("div", { class: "muted small" }, s.meta.track) : null,
     h("div", { class: "muted small" }, `${formatClock(s.start, false)} – ${formatClock(s.end, false)} · ${(dur / 60).toFixed(0)} min · ${s.channels.length} channels · ${s.fragments.length} fragment${s.fragments.length === 1 ? "" : "s"}`)));
 
+  if (s.meta.importer === "generic-csv" && s.sourceFiles) {
+    root.append(h("div", { class: "row-inline small" }, h("span", { class: "muted" }, "Columns picked by hand."),
+      h("button", { class: "small", onclick: () => loadDataFile(s.sourceFiles, { forceMapping: true }) }, "Columns…")));
+  }
   if (!s.laps.length) {
-    root.append(h("p", { class: "muted small" }, "No laps in this session."));
+    const gps = s.channel("@latitude") && s.channel("@longitude");
+    root.append(h("div", { class: "results-prompt strong" },
+      h("div", { class: "small" }, h("strong", {}, "No laps in this data. "),
+        gps ? "Mark the start and finish lines on the track (or one line for a circuit) and the laps are timed from them."
+          : "It has no GPS position either, so laps can't be found from lines on the track."),
+      gps ? h("button", { class: "primary small", onclick: openLapsDialog }, "Set start/finish lines…") : null));
     return;
   }
   root.append(resultsPrompt(s));
@@ -115,7 +137,9 @@ function buildDataPanel() {
     : cmp.theoretical ? `Comparison: theoretical ${formatLapTime(cmp.duration)} (best of ${cmp.sections.length} sections; ${formatLapTime(best ? best.duration - cmp.duration : NaN)} under the best lap)`
     : `Comparison: lap ${cmp.number}${mode === "best" ? " (session best)" : mode === "theoretical" ? " (session best; theoretical needs 2+ laps)" : ""}`;
   root.append(table, h("div", { class: "row-inline small muted" }, h("span", {}, cmpText)),
-    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")));
+    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")),
+    s.channel("@latitude") ? h("div", { class: "row-inline" }, h("button", { class: "small", onclick: openLapsDialog, title: "Find laps from start/finish lines on the track" }, "Start/finish lines…"),
+      s.gatesSet ? h("span", { class: "muted small" }, "Laps from your lines") : s.gates ? h("span", { class: "muted small" }, "Laps from the file's lines") : null) : null);
 }
 
 /**

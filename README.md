@@ -25,8 +25,18 @@ alpha matte that any editor (or ffmpeg) can put over your footage.
 **Use it online: <https://jo0.github.io/OverlayWorkspace/>** (nothing to
 install; your files still stay on your computer).
 
-Data sources: **RaceChrono Pro** (CSV v3) for now. Other lap timers and loggers
-plug in as importers; see [docs/EXTENDING.md](docs/EXTENDING.md).
+Data sources:
+
+- **RaceChrono Pro** CSV v3 (the best: laps, every channel).
+- **VBO** files: Racelogic VBOX, and the VBO exports of RaceChrono, Harry's
+  LapTimer and TrackAddict. Laps come from the start/finish lines in the file.
+- **Any other CSV** with a header row (TrackAddict, AiM Race Studio export,
+  RaceCapture, a spreadsheet...): you confirm which column is time, position,
+  speed and lap once, and it's remembered for files laid out the same way.
+
+Data without laps gets them from start/finish lines you place on the track.
+More lap timers and loggers plug in as importers; see
+[docs/EXTENDING.md](docs/EXTENDING.md).
 
 ## Running it
 
@@ -61,6 +71,19 @@ untested.
 1. **Load the data.** In RaceChrono Pro: open the session, Export → CSV v3,
    scope *whole session*. Load the `.csv`. Laps and fragments show in the Data
    panel.
+   - **Several files of one session** (RaceChrono's VBO export writes
+     `_start`, `_resume…` files): select them all in **Load data…**.
+   - **Another CSV:** the app shows the first rows and its guess of which
+     column is what. Fix anything wrong and **Import**; **Columns…** in the
+     Data panel changes it later.
+   - **No laps in the data, or wrong ones:** **Start/finish lines…** shows
+     the GPS track. Click the start line (and the finish, for autocross or a
+     stage; tick *Circuit* for one line). Each line faces the way you drove
+     there; laps only count crossings in that direction and within the
+     line's width, so a course that passes near the start doesn't trigger
+     it. The laps found are listed before you apply them, and the lines are
+     remembered for that file. Skip ticks and official results stay with
+     their run numbers.
 2. **Pick the template**, then adjust it: move and resize elements on the
    stage, fine-tune them in the inspector. With nothing selected, the
    inspector edits the template itself: canvas size, theme, colors, fonts,
@@ -254,8 +277,11 @@ startup (same-origin paths only).
 - [x] Layout editor with exact coordinates, snapping, undo, layers
 - [x] Templates: autocross, track day, rally stage; themes: default, broadcast, minimal
 - [x] Overlay and alpha matte export (H.264 via WebCodecs), JSON sidecar
-- [ ] More importers: RaceChrono VBO/NMEA, TrackAddict, Harry's LapTimer,
-      AiM/RaceCapture CSV, GoPro GPMF and DJI telemetry as data sources
+- [x] VBO importer (VBOX, RaceChrono, Harry's LapTimer, TrackAddict), generic
+      CSV with column mapping, laps from start/finish lines
+- [ ] Dedicated importers once someone shares sample files: TrackAddict, AiM,
+      RaceCapture (the generic CSV covers them meanwhile); NMEA, GoPro GPMF
+      and DJI telemetry as data sources
 - [x] Auto-sync from the camera's own GPS track (DJI with a GPS remote, or NMEA)
 - [x] Auto-sync for GoPro (GPMF GPS); still to confirm on a real track session
 - [x] Official times / penalties per lap (autocross cones), shown on the timer
