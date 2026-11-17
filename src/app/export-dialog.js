@@ -60,6 +60,23 @@ function softwareEncodeNotice() {
   return box;
 }
 
+/** A run's times and official result, for the sidecar JSON. */
+function runInfo(lap) {
+  const res = lap.result || {};
+  const counted = state.timing.countedTime(lap);
+  return {
+    number: lap.number,
+    start: lap.start,
+    gpsTime: Math.round(lap.duration * 1000) / 1000,
+    officialTime: Number.isFinite(res.official) ? res.official : null,
+    cones: res.cones || 0,
+    status: res.status || "",
+    conePenalty: state.session.conePenalty,
+    countedTime: Number.isFinite(counted) ? Math.round(counted * 1000) / 1000 : null,
+    best: state.timing.bestLap() === lap,
+  };
+}
+
 function sanitize(s) {
   return (s || "overlay").replace(/\.[^.]+$/, "").replace(/[^\w.-]+/g, "_").replace(/_+/g, "_").slice(0, 80);
 }
@@ -207,7 +224,7 @@ function open() {
         // from another run would otherwise claim this clip in its JSON.
         const v = state.video;
         const inClip = v && Number.isFinite(v.duration) && r.t0 < v.clipStart + v.duration && r.t1 > v.clipStart;
-        const meta = sidecar({ template: state.template, session: state.session, t0: r.t0, t1: r.t1, fps, width, height, video: inClip ? v : null, colorFile: files.color, alphaFile: files.alpha });
+        const meta = sidecar({ template: state.template, session: state.session, t0: r.t0, t1: r.t1, fps, width, height, video: inClip ? v : null, colorFile: files.color, alphaFile: files.alpha, run: r.lap ? runInfo(r.lap) : null });
         meta.encoder = { codec: res.codec, hardwareAcceleration: res.hardwareAcceleration, seconds: Math.round(res.seconds * 10) / 10 };
         const json = JSON.stringify(meta, null, 2);
         if (dir) {

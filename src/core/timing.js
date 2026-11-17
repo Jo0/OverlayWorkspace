@@ -2,6 +2,7 @@
 // laps, and the delta to a comparison lap (matched by distance into the lap,
 // the way lap timers do it).
 
+import { DEFAULT_CONE_PENALTY, counts, countedTime, rawTime, resultMark } from "./results.js";
 import { Channel } from "./session.js";
 
 const MODE_LABELS = { session: "SESSION", "so-far": "BEST", theoretical: "THEO" };
@@ -31,15 +32,30 @@ export class Timing {
     this._theo = undefined;
   }
 
-  validLaps() {
-    return this.session.laps.filter((l) => !l.excluded);
+  /** Seconds added per cone (session setting; see core/results.js). */
+  get conePenalty() {
+    const p = this.session.conePenalty;
+    return Number.isFinite(p) && p >= 0 ? p : DEFAULT_CONE_PENALTY;
   }
 
-  /** Fastest non-excluded lap, optionally only among laps finished by `by`. */
+  /** Laps that can be "best" or part of the theoretical best: not skipped, and
+   *  not off course, DNF, DSQ or a rerun (an off-course run may have cut the
+   *  course, so its sections can't be trusted either). */
+  validLaps() {
+    return this.session.laps.filter((l) => !l.excluded && counts(l));
+  }
+
+  /** The run's time as it counts: raw time (official if entered) plus cone penalties. */
+  countedTime(lap) {
+    return countedTime(lap, this.conePenalty);
+  }
+
+  /** Best run by counted time (official results when entered), optionally only among laps finished by `by`. */
   bestLap(by = Infinity) {
-    let best = null;
+    let best = null, bestT = Infinity;
     for (const l of this.validLaps()) {
-      if (l.end <= by && (!best || l.duration < best.duration)) best = l;
+      const t = this.countedTime(l);
+      if (l.end <= by && t < bestT) { best = l; bestT = t; }
     }
     return best;
   }
@@ -218,9 +234,11 @@ export class Timing {
       }
     }
 
+    // Running: the GPS time. Finished: the official time when one was
+    // entered (the number on the results sheet), else the GPS lap time.
     let elapsed = NaN;
     if (state === "in") elapsed = t - lap.start;
-    else if (state === "after") elapsed = lap.duration;
+    else if (state === "after") elapsed = rawTime(lap);
     else if (state === "before") elapsed = 0;
 
     let last = null;
@@ -260,6 +278,8 @@ export class Timing {
       fragmentLapCount: fragmentLaps.length,
       lapCount: laps.length,
       elapsed,
+      // Results-sheet mark beside the finished time: "+2", "OC", "DNF"...
+      mark: state === "after" ? resultMark(lap) : "",
       last,
       best: this.bestLap(t),
       comparison: cmp,

@@ -7,6 +7,7 @@
 
 import { expandToGroups } from "../core/arrange.js";
 import { Timing } from "../core/timing.js";
+import { restoreResults } from "./results-store.js";
 import { serializeTemplate, normalizeTemplate } from "../core/template.js";
 import { loadThemeFonts, resolveTheme } from "../core/theme.js";
 
@@ -79,6 +80,7 @@ export function toggleSelect(id, { single = false } = {}) {
 }
 
 export function setSession(session) {
+  restoreResults(session); // Skip ticks and official results saved for this file
   state.session = session;
   state.timing = session ? new Timing(session) : null;
   applyComparison();

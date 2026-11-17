@@ -3,6 +3,7 @@
 import { importers, widgets } from "../core/registry.js";
 import { groupMembers, makeGroup, moveLayer, newGroupId, normalizeGroups, ungroup } from "../core/arrange.js";
 import { newElementId, normalizeTemplate } from "../core/template.js";
+import { rawTime, resultMark } from "../core/results.js";
 import { formatClock, formatLapTime } from "../core/units.js";
 import { importData } from "../importers/index.js";
 import { readMp4Info } from "../video/mp4-info.js";
@@ -11,6 +12,8 @@ import { readGoProTrack } from "../video/gopro-gps.js";
 import { parseNmea } from "../video/nmea.js";
 import { matchClockOffset } from "../core/gps-sync.js";
 import { $, clear, h, pickFile, pickFiles } from "./dom.js";
+import { openResultsDialog } from "./results-dialog.js";
+import { saveResults } from "./results-store.js";
 import { getVideoElement, seekVideoToTime } from "./stage.js";
 import { applyComparison, emit, history, on, select, setSelection, setSession, setStatus, setTime, state } from "./state.js";
 
@@ -20,6 +23,7 @@ export function initPanels() {
   buildLayers();
   on("session", () => { buildDataPanel(); buildVideoPanel(); });
   on("comparison-changed", buildDataPanel);
+  on("results-changed", buildDataPanel);
   on("video", buildVideoPanel);
   on("time", updateSyncScrub);
   on("view-lap", (lap) => { focusLapNumber = lap.number; if (state.video) buildVideoPanel(); });
@@ -72,12 +76,12 @@ function buildDataPanel() {
   const cmp = state.timing.comparisonLap();
   const best = state.timing.bestLap();
   const table = h("table", { class: "laps" },
-    h("thead", {}, h("tr", {}, h("th", {}, "Lap"), h("th", {}, "Time"), h("th", { title: "Fragment (recording segment)" }, "Frag"), h("th", { title: "Leave out of best lap and comparison (cones, DNF, off-course)" }, "Skip"), h("th", { title: "Comparison lap for the delta" }, "Cmp"), h("th", {}, ""))));
+    h("thead", {}, h("tr", {}, h("th", {}, "Lap"), h("th", {}, "Time"), h("th", { title: "Fragment (recording segment)" }, "Frag"), h("th", { title: "Not a run, or leave it out of best and comparison. Cones, OC and DNF go in Official results." }, "Skip"), h("th", { title: "Comparison lap for the delta" }, "Cmp"), h("th", {}, ""))));
   const tb = h("tbody");
   for (const l of s.laps) {
     const skip = h("input", { type: "checkbox", title: "Leave out of best lap and comparison" });
     skip.checked = !!l.excluded;
-    skip.addEventListener("change", () => { l.excluded = skip.checked; state.timing.invalidate(); emit("element", null); buildDataPanel(); });
+    skip.addEventListener("change", () => { l.excluded = skip.checked; state.timing.invalidate(); saveResults(s); emit("element", null); buildDataPanel(); });
     const radio = h("input", { type: "radio", name: "cmp-lap", title: "Compare against this lap" });
     radio.checked = state.template.timing.comparison === l.number;
     radio.addEventListener("change", () => {
@@ -90,7 +94,7 @@ function buildDataPanel() {
     });
     tb.append(h("tr", { class: [l === cmp ? "is-cmp" : "", l === best ? "is-best" : "", l.excluded ? "is-skip" : ""].join(" ") },
       h("td", {}, l.number),
-      h("td", { class: "mono" }, formatLapTime(l.duration)),
+      h("td", { class: "mono", title: l.result && Number.isFinite(l.result.official) ? `GPS ${formatLapTime(l.duration)}` : "" }, formatLapTime(rawTime(l)), resultMark(l) ? h("span", { class: "result-mark" }, ` ${resultMark(l)}`) : null),
       h("td", { class: "muted" }, l.fragment),
       h("td", {}, skip),
       h("td", {}, radio),
@@ -103,7 +107,9 @@ function buildDataPanel() {
     : cmp.theoretical ? `Comparison: theoretical ${formatLapTime(cmp.duration)} (best of ${cmp.sections.length} sections; ${formatLapTime(best ? best.duration - cmp.duration : NaN)} under the best lap)`
     : `Comparison: lap ${cmp.number}${mode === "best" ? " (session best)" : mode === "theoretical" ? " (session best; theoretical needs 2+ laps)" : ""}`;
   root.append(table, h("div", { class: "row-inline small muted" }, h("span", {}, cmpText)),
-    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")));
+    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")),
+    h("div", { class: "row-inline" }, h("button", { class: "small", onclick: openResultsDialog, title: "Official times, cones, off course / DNF per run" }, "Official results…"),
+      s.laps.some((l) => l.result) ? h("span", { class: "muted small" }, `${s.laps.filter((l) => l.result).length} run(s) with results · ${s.conePenalty} s per cone`) : null));
 }
 
 // ── Video ────────────────────────────────────────────────────────────────────

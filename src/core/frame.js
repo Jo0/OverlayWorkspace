@@ -2,6 +2,8 @@
 // at that time, and lap timing. Timing values are exposed as virtual channels
 // ("timing.delta" etc.) so any widget that shows a channel can show them too.
 
+import { rawTime } from "./results.js";
+
 export const VIRTUAL_CHANNELS = {
   "timing.elapsed": { label: "Lap time (running)", dimension: "time" },
   "timing.delta": { label: "Delta to comparison lap", dimension: "time" },
@@ -56,8 +58,8 @@ function timingValue(tc, ref) {
     case "timing.elapsed": return tc.elapsed;
     case "timing.delta": return tc.delta;
     case "timing.predicted": return tc.predicted;
-    case "timing.last": return tc.last ? tc.last.duration : NaN;
-    case "timing.best": return tc.best ? tc.best.duration : NaN;
+    case "timing.last": return tc.last ? rawTime(tc.last) : NaN;
+    case "timing.best": return tc.best ? rawTime(tc.best) : NaN;
     case "timing.target": return tc.comparison ? tc.comparison.duration : NaN;
     case "timing.lap": return tc.lapNumber;
     case "timing.progress": return tc.progress * 100;

@@ -2,6 +2,7 @@
 
 import { widgets } from "../core/registry.js";
 import { color } from "../core/theme.js";
+import { rawTime, resultMark } from "../core/results.js";
 import { formatDelta, formatLapTime } from "../core/units.js";
 import { CAP, drawPanel, drawText, fitSize, measureText, shapePath } from "../render/draw.js";
 import { P } from "./common.js";
@@ -32,6 +33,8 @@ widgets.register({
       showCompare: true,
       gainColor: "good",
       lossColor: "bad",
+      showMarks: true,
+      markColor: "bad",
     },
   },
   props: [
@@ -58,6 +61,8 @@ widgets.register({
     { key: "showCompare", label: "Show what it compares against in the title", type: "bool" },
     P.color("gainColor", "Ahead color"),
     P.color("lossColor", "Behind color"),
+    { key: "showMarks", label: "Show cones / OC / DNF beside finished times (from Official results)", type: "bool" },
+    P.color("markColor", "Cones / OC color"),
     P.panel,
   ],
   draw(ctx, { w, h, props, theme, frame }) {
@@ -96,20 +101,38 @@ widgets.register({
 
     const text = formatLapTime(Number.isFinite(elapsed) ? elapsed : 0, props.decimals, props.format);
     const sample = formatLapTime(88.888, props.decimals, props.format === "auto" ? "m:ss" : props.format).replace(/\d/g, "0");
-    const size = fitSize(ctx, theme, "number", sample, box.w, mainH / CAP);
+    let size = fitSize(ctx, theme, "number", sample, box.w, mainH / CAP);
     const col = deltaColor || (state === "after" ? props.finishedColor : state === "in" ? props.color : props.waitingColor);
-    drawText(ctx, theme, text, x, y + (mainH + size * CAP) / 2, { role: "number", size, color: col, align: props.align });
+    // The results mark sits beside the finished time, smaller, like a
+    // results sheet: "1:08.849 +2", "1:10.123 OC".
+    const mark = props.showMarks && tc ? tc.mark : "";
+    const base = y + (mainH + size * CAP) / 2;
+    if (mark) {
+      const ms = () => size * 0.45, gap = () => size * 0.2;
+      const tw = () => measureText(ctx, theme, "number", size, text), mw = () => measureText(ctx, theme, "number", ms(), mark);
+      const total = tw() + gap() + mw();
+      if (total > box.w) size *= box.w / total;
+      const w0 = tw() + gap() + mw();
+      const left = props.align === "right" ? x - w0 : props.align === "center" ? x - w0 / 2 : x;
+      const by = y + (mainH + size * CAP) / 2;
+      drawText(ctx, theme, text, left, by, { role: "number", size, color: col, align: "left" });
+      drawText(ctx, theme, mark, left + tw() + gap(), by, { role: "number", size: ms(), color: props.markColor, align: "left" });
+    } else {
+      drawText(ctx, theme, text, x, base, { role: "number", size, color: col, align: props.align });
+    }
     y += mainH + (rows ? rowH * 0.3 : 0);
 
     const row = (label, lap) => {
-      const val = lap ? formatLapTime(lap.duration, props.decimals, props.format) : "--";
+      const val = lap ? formatLapTime(rawTime(lap), props.decimals, props.format) : "--";
+      const mk = lap && props.showMarks ? resultMark(lap) : "";
       const ls = rowH;
       if (props.align === "left") {
         drawText(ctx, theme, label, box.x, y + ls * CAP, { role: "label", size: ls, color: "muted" });
         const lw = measureText(ctx, theme, "label", ls, label + "  ");
         drawText(ctx, theme, val, box.x + lw, y + ls * CAP, { role: "number", size: ls, color: "text" });
+        if (mk) drawText(ctx, theme, mk, box.x + lw + measureText(ctx, theme, "number", ls, val + " "), y + ls * CAP, { role: "number", size: ls, color: props.markColor });
       } else {
-        drawText(ctx, theme, `${label}  ${val}`, x, y + ls * CAP, { role: "number", size: ls, color: "text", align: props.align });
+        drawText(ctx, theme, `${label}  ${val}${mk ? ` ${mk}` : ""}`, x, y + ls * CAP, { role: "number", size: ls, color: "text", align: props.align });
       }
       y += rowH;
     };

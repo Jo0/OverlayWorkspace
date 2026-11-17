@@ -2,6 +2,7 @@
 
 import { widgets } from "../core/registry.js";
 import { color } from "../core/theme.js";
+import { rawTime, resultMark } from "../core/results.js";
 import { formatLapTime } from "../core/units.js";
 import { CAP, drawPanel, drawText, fitSize, shapePath } from "../render/draw.js";
 import { P, formatValue, sampleNumber } from "./common.js";
@@ -61,8 +62,9 @@ export function fillTokens(str, frame) {
     date: () => (s && s.meta.date) || new Date(frame.t * 1000).toLocaleDateString(),
     time: () => new Date(frame.t * 1000).toLocaleTimeString(),
     state: () => (tc ? tc.state : ""),
-    best: () => (tc && tc.best ? formatLapTime(tc.best.duration) : "--"),
-    last: () => (tc && tc.last ? formatLapTime(tc.last.duration) : "--"),
+    // Raw time (official if entered) with the results mark: "1:08.849 +2".
+    best: () => (tc && tc.best ? `${formatLapTime(rawTime(tc.best))} ${resultMark(tc.best)}`.trim() : "--"),
+    last: () => (tc && tc.last ? `${formatLapTime(rawTime(tc.last))} ${resultMark(tc.last)}`.trim() : "--"),
   };
   // {lap} style, or {value:<channel>:<unit>:<decimals>}
   return str.replace(/\{([^{}]+)\}/g, (m, key) => {

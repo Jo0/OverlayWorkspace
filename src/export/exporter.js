@@ -164,7 +164,7 @@ export async function exportOverlay(o) {
 }
 
 /** The sidecar JSON written next to an export, so other tools can place the overlay exactly. */
-export function sidecar({ template, session, t0, t1, fps, width, height, video, colorFile, alphaFile }) {
+export function sidecar({ template, session, t0, t1, fps, width, height, video, colorFile, alphaFile, run = null }) {
   return {
     schema: "overlay-export/1",
     generator: "OverlayWorkspace",
@@ -181,5 +181,7 @@ export function sidecar({ template, session, t0, t1, fps, width, height, video, 
     ffmpeg: "ffmpeg -i VIDEO -itsoffset START -i OVERLAY -itsoffset START -i ALPHA -filter_complex \"[2]scale=in_range=tv:out_range=pc,format=gray[a];[1][a]alphamerge[ov];[0][ov]overlay=eof_action=pass\" -c:a copy OUT  (START = video.overlayStartsAt, seconds into the video; overlay exported at the video's frame size)",
     // Where the overlay's first frame lands in the video it was lined up against.
     video: video ? { file: video.name, clipStart: video.clipStart, overlayStartsAt: t0 - video.clipStart } : null,
+    // For a lap/run export: its times and official result, e.g. for title cards.
+    ...(run ? { run } : {}),
   };
 }

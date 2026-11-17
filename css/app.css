@@ -246,3 +246,9 @@ details.advanced summary { cursor: pointer; color: var(--muted); }
 .font-preview { font-size: 34px; line-height: 1.2; margin: 6px 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .font-local { margin-bottom: 8px; }
 .font-local p { margin: 0 0 6px; }
+
+/* Official results */
+.result-mark { color: var(--err); font-size: 11px; }
+.results-wrap { max-height: 300px; overflow-y: auto; margin-bottom: 10px; }
+table.results input.narrow, input.narrow { width: 90px; }
+table.results select { max-width: 150px; }

@@ -85,11 +85,24 @@ untested.
      forward and back as a block.
 3. **Set up the lap timing** in the Data panel. These settings only change
    what the gauges *show*. They don't choose which laps get exported.
-   - **Skip:** leaves a lap out of "best" and out of the comparison (cones,
-     DNF, off-course). RaceChrono can't know about those. A skipped lap still
-     shows its own timer and still exports.
+   - **Skip:** leaves a lap out of "best" and out of the comparison, e.g. a
+     lap that isn't a run. A skipped lap still shows its own timer and still
+     exports.
+   - **Official results…:** what the timing sheet says about each run: the
+     official (timing-light) time, cones, and off course / DNF / DSQ /
+     rerun. Type them in, or paste your row from the results page (AXware
+     style `68.849+1  70.123+OC  DNF`; names and car numbers are ignored).
+     Each cone adds the session's penalty (1 s by default). The run timer
+     shows the GPS time while running and the official time at the finish,
+     with the cones or status beside it: `1:08.849 +2`, `1:11.700 OC`. Best
+     and the comparison go by the time as it counts, so a clean run beats a
+     faster one with cones; off-course, DNF, DSQ and reruns can't be best and
+     stay out of the theoretical best. Lap exports record the result in their
+     `.overlay.json`.
    - **Cmp:** picks the comparison lap for the delta. The default is the best
-     non-skipped lap.
+     run as it counts.
+   - Skip ticks and official results are kept in this browser for that data
+     file, so loading it again brings them back.
    - **Compare to theoretical:** compares against your theoretical best: the
      fastest time through each part of the lap, taken from any non-skipped lap
      and joined into one target. This gives a useful delta even on your best
@@ -219,7 +232,7 @@ tools/update-google-fonts.py  refreshes data/google-fonts.json from Google Fonts
 ## Development
 
 ```bash
-node --test test/*.test.js   # unit tests: importer, timing, units, placement, MP4 writer, arrange, fonts, themes, GoPro GPS
+node --test test/*.test.js   # unit tests: importer, timing, results, units, placement, MP4 writer, arrange, fonts, themes, GoPro GPS
 ```
 
 One GoPro test also reads GoPro's own sample clips when they're in
@@ -244,7 +257,7 @@ startup (same-origin paths only).
       AiM/RaceCapture CSV, GoPro GPMF and DJI telemetry as data sources
 - [x] Auto-sync from the camera's own GPS track (DJI with a GPS remote, or NMEA)
 - [x] Auto-sync for GoPro (GPMF GPS); still to confirm on a real track session
-- [ ] Official times / penalties per lap (autocross cones), shown on the timer
+- [x] Official times / penalties per lap (autocross cones), shown on the timer
 - [x] Multi-select, alignment tools, element groups
 - [x] Web font picker; theme editor that can save a theme file
 
