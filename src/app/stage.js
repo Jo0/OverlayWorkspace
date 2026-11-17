@@ -1,11 +1,12 @@
 // The preview stage: your video, the overlay rendered on top at the current
-// time, and an editing layer for selecting, dragging and resizing elements
-// with exact design-pixel coordinates.
+// time, and an editing layer for selecting (click, Shift-click, marquee),
+// dragging and resizing elements with exact design-pixel coordinates.
 
 import { makeFrame } from "../core/frame.js";
 import { Renderer } from "../render/renderer.js";
 import { $ } from "./dom.js";
-import { commitSoon, emit, history, on, select, selected, state } from "./state.js";
+import { bounds, expandToGroups, scaleInto } from "../core/arrange.js";
+import { commitSoon, emit, history, on, select, selectedElements, setSelection, state, toggleSelect } from "./state.js";
 
 export const renderer = new Renderer();
 
@@ -126,11 +127,27 @@ export function seekVideoToTime() {
 }
 
 // ── Editing layer ────────────────────────────────────────────────────────────
+//
+// Click selects an element (its whole group if it has one). Shift-click adds
+// or removes. Ctrl/Cmd-click or double-click picks one element inside a
+// group. Dragging empty space draws a marquee. The handles resize the one
+// selected element, or the whole selection together.
 
 const dpr = () => window.devicePixelRatio || 1;
 
 function rectOf(el) {
   return { x: el.x * scale, y: el.y * scale, w: el.w * scale, h: el.h * scale };
+}
+
+function toScreen(r) {
+  return { x: r.x * scale, y: r.y * scale, w: r.w * scale, h: r.h * scale };
+}
+
+/** The rect the handles sit on: the selected element, or the selection's bounds. Null if nothing can be resized. */
+function handleRect() {
+  const els = selectedElements();
+  if (!els.length || els.some((e) => e.locked)) return null;
+  return toScreen(bounds(els));
 }
 
 function drawUi() {
@@ -149,23 +166,59 @@ function drawUi() {
       uctx.stroke();
     }
   }
+  const sel = new Set(state.selection);
+  const multi = sel.size > 1;
+  const hover = hoverId && t.elements.find((e) => e.id === hoverId);
+  const hoverGroup = hover && hover.group && !sel.has(hover.id) ? hover.group : null;
   for (const el of t.elements) {
     if (el.hidden) continue;
     const r = rectOf(el);
-    const sel = el.id === state.selectedId;
-    uctx.strokeStyle = sel ? "#4da3ff" : hoverId === el.id ? "rgba(77,163,255,0.6)" : "transparent";
-    uctx.lineWidth = sel ? 1.5 : 1;
+    const isSel = sel.has(el.id);
+    uctx.strokeStyle = isSel ? (multi ? "rgba(77,163,255,0.75)" : "#4da3ff")
+      : hoverId === el.id || (hoverGroup && el.group === hoverGroup) ? "rgba(77,163,255,0.6)" : "transparent";
+    uctx.lineWidth = isSel && !multi ? 1.5 : 1;
     uctx.setLineDash(el.locked ? [4, 3] : []);
     uctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w, r.h);
     uctx.setLineDash([]);
-    if (sel && !el.locked) {
+  }
+  // A hovered group shows its outline, so it's clear a click takes all of it.
+  if (hoverGroup) {
+    const members = t.elements.filter((e) => e.group === hoverGroup && !e.hidden);
+    if (members.length) {
+      const r = toScreen(bounds(members));
+      uctx.strokeStyle = "rgba(77,163,255,0.6)";
+      uctx.setLineDash([6, 4]);
+      uctx.strokeRect(r.x - 3.5, r.y - 3.5, r.w + 7, r.h + 7);
+      uctx.setLineDash([]);
+    }
+  }
+  if (sel.size) {
+    const hr = handleRect();
+    const r = hr || toScreen(bounds(selectedElements()));
+    if (multi) {
+      uctx.strokeStyle = "#4da3ff";
+      uctx.lineWidth = 1.5;
+      uctx.setLineDash([6, 4]);
+      uctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w, r.h);
+      uctx.setLineDash([]);
+    }
+    if (hr) {
       uctx.fillStyle = "#fff";
       uctx.strokeStyle = "#4da3ff";
-      for (const hd of handles(r)) {
+      uctx.lineWidth = 1;
+      for (const hd of handles(hr)) {
         uctx.fillRect(hd.x - HANDLE / 2, hd.y - HANDLE / 2, HANDLE, HANDLE);
         uctx.strokeRect(hd.x - HANDLE / 2 + 0.5, hd.y - HANDLE / 2 + 0.5, HANDLE - 1, HANDLE - 1);
       }
     }
+  }
+  if (marquee) {
+    const r = toScreen(marquee.rect);
+    uctx.fillStyle = "rgba(77,163,255,0.12)";
+    uctx.strokeStyle = "#4da3ff";
+    uctx.lineWidth = 1;
+    uctx.fillRect(r.x, r.y, r.w, r.h);
+    uctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w, r.h);
   }
   if (guides.length) {
     uctx.strokeStyle = "#ff3ea5";
@@ -187,6 +240,11 @@ function handles(r) {
   return out;
 }
 
+function handleAt(p) {
+  const hr = handleRect();
+  return hr ? handles(hr).find((q) => Math.abs(q.x - p.x) <= HANDLE && Math.abs(q.y - p.y) <= HANDLE) : null;
+}
+
 function pointerPos(e) {
   const b = ui.getBoundingClientRect();
   return { x: e.clientX - b.left, y: e.clientY - b.top };
@@ -205,13 +263,10 @@ function hitElement(p) {
 
 let hoverId = null;
 function onHover(e) {
-  if (drag) return;
+  if (drag || marquee) return;
   const p = pointerPos(e);
-  const sel = selected();
-  if (sel && !sel.locked) {
-    const hd = handles(rectOf(sel)).find((q) => Math.abs(q.x - p.x) <= HANDLE && Math.abs(q.y - p.y) <= HANDLE);
-    if (hd) { ui.style.cursor = `${hd.name}-resize`; return; }
-  }
+  const hd = handleAt(p);
+  if (hd) { ui.style.cursor = `${hd.name}-resize`; return; }
   const el = hitElement(p);
   ui.style.cursor = el ? (el.locked ? "pointer" : "move") : "default";
   const id = el ? el.id : null;
@@ -220,28 +275,43 @@ function onHover(e) {
 
 let drag = null;
 let guides = [];
+let marquee = null;
 
 function onPointerDown(e) {
   if (e.button !== 0) return;
   const p = pointerPos(e);
-  const sel = selected();
-  let mode = null, target = null;
-  if (sel && !sel.locked) {
-    const hd = handles(rectOf(sel)).find((q) => Math.abs(q.x - p.x) <= HANDLE && Math.abs(q.y - p.y) <= HANDLE);
-    if (hd) { mode = hd.name; target = sel; }
-  }
-  if (!target) {
-    target = hitElement(p);
-    if (target && target.locked && target.id === state.selectedId) {
-      // click-through to an element underneath a locked one
+  const additive = e.shiftKey;
+  const deep = e.ctrlKey || e.metaKey || e.detail >= 2; // one element inside a group
+  let mode = null;
+  const hd = !additive && handleAt(p);
+  if (hd) mode = hd.name;
+  else {
+    const target = hitElement(p);
+    if (!target) {
+      // Empty space: marquee. Shift keeps what's already selected.
+      if (!additive) setSelection([]);
+      marquee = { p0: p, base: additive ? [...state.selection] : [], rect: { x: p.x / scale, y: p.y / scale, w: 0, h: 0 } };
+      ui.setPointerCapture(e.pointerId);
+      ui.addEventListener("pointermove", onMarqueeMove);
+      ui.addEventListener("pointerup", onMarqueeEnd, { once: true });
+      ui.addEventListener("pointercancel", onMarqueeEnd, { once: true });
+      return;
     }
-    if (!target) { select(null); return; }
-    select(target.id);
-    if (target.locked) return;
+    if (additive) { toggleSelect(target.id, { single: deep }); return; }
+    // Clicking inside the current selection keeps it, so several can be dragged.
+    const inSel = state.selection.includes(target.id);
+    if (!inSel || (deep && state.selection.length > 1)) select(target.id, { single: deep });
     mode = "move";
   }
+  const els = selectedElements();
+  const movable = els.filter((el) => !el.locked);
+  if (!movable.length || (mode !== "move" && movable.length !== els.length)) return;
   ui.setPointerCapture(e.pointerId);
-  drag = { mode, el: target, p0: p, start: { x: target.x, y: target.y, w: target.w, h: target.h }, moved: false };
+  drag = {
+    mode, els: movable, p0: p, moved: false,
+    start: movable.map((el) => ({ x: el.x, y: el.y, w: el.w, h: el.h })),
+    box: bounds(movable),
+  };
   ui.addEventListener("pointermove", onDragMove);
   ui.addEventListener("pointerup", onDragEnd, { once: true });
   ui.addEventListener("pointercancel", onDragEnd, { once: true });
@@ -258,20 +328,23 @@ function onDragMove(e) {
   const dx = (p.x - drag.p0.x) / scale, dy = (p.y - drag.p0.y) / scale;
   if (!drag.moved && Math.hypot(p.x - drag.p0.x, p.y - drag.p0.y) < 2) return;
   drag.moved = true;
-  const el = drag.el, s = drag.start, m = drag.mode;
+  const b = drag.box, m = drag.mode;
   guides = [];
   if (m === "move") {
-    el.x = snap(s.x + dx, e);
-    el.y = snap(s.y + dy, e);
-    smartGuides(el, e);
+    // Snap the selection's box, then move every element by the same amount.
+    const r = { x: snap(b.x + dx, e), y: snap(b.y + dy, e), w: b.w, h: b.h };
+    smartGuides(r, new Set(drag.els.map((el) => el.id)), e);
+    drag.els.forEach((el, i) => { el.x = drag.start[i].x + (r.x - b.x); el.y = drag.start[i].y + (r.y - b.y); });
   } else {
-    let x0 = s.x, y0 = s.y, x1 = s.x + s.w, y1 = s.y + s.h;
-    if (m.includes("w")) x0 = snap(s.x + dx, e);
-    if (m.includes("e")) x1 = snap(s.x + s.w + dx, e);
-    if (m.includes("n")) y0 = snap(s.y + dy, e);
-    if (m.includes("s")) y1 = snap(s.y + s.h + dy, e);
-    if (e.shiftKey && m.length === 2) {
-      const ar = s.w / s.h;
+    let x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
+    if (m.includes("w")) x0 = snap(b.x + dx, e);
+    if (m.includes("e")) x1 = snap(b.x + b.w + dx, e);
+    if (m.includes("n")) y0 = snap(b.y + dy, e);
+    if (m.includes("s")) y1 = snap(b.y + b.h + dy, e);
+    // Shift keeps proportions. A multi-selection always does from a corner,
+    // so the text and gauges inside don't get squashed.
+    if ((e.shiftKey || drag.els.length > 1) && m.length === 2) {
+      const ar = b.w / b.h;
       const w = x1 - x0, h = y1 - y0;
       if (Math.abs(w / ar) > Math.abs(h)) {
         const nh = w / ar;
@@ -281,37 +354,35 @@ function onDragMove(e) {
         if (m.includes("w")) x0 = x1 - nw; else x1 = x0 + nw;
       }
     }
-    el.x = Math.round(Math.min(x0, x1));
-    el.y = Math.round(Math.min(y0, y1));
-    el.w = Math.max(1, Math.round(Math.abs(x1 - x0)));
-    el.h = Math.max(1, Math.round(Math.abs(y1 - y0)));
+    const to = { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.max(1, Math.abs(x1 - x0)), h: Math.max(1, Math.abs(y1 - y0)) };
+    scaleInto(drag.els, drag.start, b, to);
   }
-  emit("element", el);
+  for (const el of drag.els) emit("element", el);
 }
 
-/** Snaps a moving element's edges/center to the canvas center and other elements (within 8 screen px). */
-function smartGuides(el, e) {
+/** Snaps a moving rect's edges/center to the canvas center and edges and to other elements (within 8 screen px). */
+function smartGuides(r, exclude, e) {
   if (e.altKey) return;
   const tol = 8 / scale;
   const t = state.template;
   const xs = [0, t.canvas.width / 2, t.canvas.width], ys = [0, t.canvas.height / 2, t.canvas.height];
   for (const o of t.elements) {
-    if (o === el || o.hidden) continue;
+    if (exclude.has(o.id) || o.hidden) continue;
     xs.push(o.x, o.x + o.w / 2, o.x + o.w);
     ys.push(o.y, o.y + o.h / 2, o.y + o.h);
   }
   const best = (cands, edges) => {
     let hit = null;
-    for (const c of cands) for (const [off, v] of edges) {
+    for (const c of cands) for (const v of edges) {
       const d = c - v;
-      if (Math.abs(d) <= tol && (!hit || Math.abs(d) < Math.abs(hit.d))) hit = { d, v: c, off };
+      if (Math.abs(d) <= tol && (!hit || Math.abs(d) < Math.abs(hit.d))) hit = { d, v: c };
     }
     return hit;
   };
-  const hx = best(xs, [[0, el.x], [el.w / 2, el.x + el.w / 2], [el.w, el.x + el.w]]);
-  if (hx) { el.x = Math.round(el.x + hx.d); guides.push({ axis: "x", v: hx.v }); }
-  const hy = best(ys, [[0, el.y], [el.h / 2, el.y + el.h / 2], [el.h, el.y + el.h]]);
-  if (hy) { el.y = Math.round(el.y + hy.d); guides.push({ axis: "y", v: hy.v }); }
+  const hx = best(xs, [r.x, r.x + r.w / 2, r.x + r.w]);
+  if (hx) { r.x = Math.round(r.x + hx.d); guides.push({ axis: "x", v: hx.v }); }
+  const hy = best(ys, [r.y, r.y + r.h / 2, r.y + r.h]);
+  if (hy) { r.y = Math.round(r.y + hy.d); guides.push({ axis: "y", v: hy.v }); }
 }
 
 function onDragEnd() {
@@ -325,6 +396,25 @@ function onDragEnd() {
   dirty = true;
 }
 
+function onMarqueeMove(e) {
+  if (!marquee) return;
+  const p = pointerPos(e), p0 = marquee.p0;
+  marquee.rect = { x: Math.min(p.x, p0.x) / scale, y: Math.min(p.y, p0.y) / scale, w: Math.abs(p.x - p0.x) / scale, h: Math.abs(p.y - p0.y) / scale };
+  // Everything the box touches (visible, unlocked), with whole groups.
+  const r = marquee.rect;
+  const hit = state.template.elements
+    .filter((el) => !el.hidden && !el.locked && el.x < r.x + r.w && el.x + el.w > r.x && el.y < r.y + r.h && el.y + el.h > r.y)
+    .map((el) => el.id);
+  setSelection([...marquee.base, ...expandToGroups(state.template, hit)]);
+  dirty = true;
+}
+
+function onMarqueeEnd() {
+  ui.removeEventListener("pointermove", onMarqueeMove);
+  marquee = null;
+  dirty = true;
+}
+
 function inField(e) {
   const t = e.target;
   return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
@@ -333,25 +423,37 @@ function inField(e) {
 function onKey(e) {
   if (inField(e)) return;
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? history.redo() : history.undo(); return; }
-  if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); history.redo(); return; }
-  const el = selected();
-  if (!el) return;
+  const key = e.key.toLowerCase();
+  if (mod && key === "z") { e.preventDefault(); e.shiftKey ? history.redo() : history.undo(); return; }
+  if (mod && key === "y") { e.preventDefault(); history.redo(); return; }
+  if (mod && key === "a" && state.template) {
+    e.preventDefault();
+    setSelection(state.template.elements.filter((el) => !el.hidden && !el.locked).map((el) => el.id));
+    return;
+  }
+  const els = selectedElements();
+  if (!els.length) return;
   const step = e.shiftKey ? 10 : 1;
   const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-  if (moves[e.key] && !el.locked) {
+  if (moves[e.key]) {
     e.preventDefault();
-    el.x += moves[e.key][0];
-    el.y += moves[e.key][1];
-    emit("element", el);
+    for (const el of els) {
+      if (el.locked) continue;
+      el.x += moves[e.key][0];
+      el.y += moves[e.key][1];
+      emit("element", el);
+    }
     commitSoon();
   } else if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault();
-    emit("delete-element", el);
-  } else if (mod && e.key.toLowerCase() === "d") {
+    emit("delete-element", els);
+  } else if (mod && key === "d") {
     e.preventDefault();
-    emit("duplicate-element", el);
+    emit("duplicate-element", els);
+  } else if (mod && key === "g") {
+    e.preventDefault();
+    emit(e.shiftKey ? "ungroup" : "group", els);
   } else if (e.key === "Escape") {
-    select(null);
+    setSelection([]);
   }
 }

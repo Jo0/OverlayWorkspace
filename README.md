@@ -6,7 +6,8 @@ alpha matte that any editor (or ffmpeg) can put over your footage.
 
 - **Exact layout.** Every element has pixel coordinates and a size on a 4K
   design canvas. Drag it, or type the numbers. Snap to a grid and to other
-  elements' edges and centers.
+  elements' edges and centers. Select several to move, resize, align or
+  distribute them together, and group the ones that belong together.
 - **Your own footage underneath.** Load the clip, rotate it if the camera was
   mounted upside down, and line the data up with it.
 - **Templates per kind of session.** Autocross, track day, rally stage, and
@@ -60,6 +61,14 @@ untested.
    stage, fine-tune them in the inspector. With nothing selected, the
    inspector edits the template itself: canvas size, theme, colors, fonts,
    panel shape. Save it (**Save…**) to reuse it at the next event.
+   - **Several at once:** Shift-click, drag a box over empty space, or
+     Ctrl+A. Drag any of them to move them all; the handles resize them
+     together. The inspector then aligns them (to each other or to the
+     canvas) and spaces them out evenly.
+   - **Groups:** Ctrl+G groups the selection, Ctrl+Shift+G ungroups. A click
+     on the stage takes the whole group; Ctrl-click or double-click picks one
+     element in it. In Layers a group is one row you can hide, lock or move
+     forward and back as a block.
 3. **Set up the lap timing** in the Data panel. These settings only change
    what the gauges *show*. They don't choose which laps get exported.
    - **Skip:** leaves a lap out of "best" and out of the comparison (cones,
@@ -204,7 +213,7 @@ startup (same-origin paths only).
 - [x] Auto-sync from the camera's own GPS track (DJI with a GPS remote, or NMEA)
 - [ ] Auto-sync for GoPro (GPMF GPS)
 - [ ] Official times / penalties per lap (autocross cones), shown on the timer
-- [ ] Multi-select, alignment tools, element groups
+- [x] Multi-select, alignment tools, element groups
 - [ ] Web font picker; theme editor that can save a theme file
 
 ## License

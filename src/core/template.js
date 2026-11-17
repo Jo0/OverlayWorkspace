@@ -3,6 +3,7 @@
 // reference, and a list of elements with exact pixel positions on that
 // canvas. See docs/EXTENDING.md for the schema.
 
+import { normalizeGroups } from "./arrange.js";
 import { widgets } from "./registry.js";
 
 export const TEMPLATE_SCHEMA = "overlay-template/1";
@@ -30,6 +31,7 @@ export function normalizeTemplate(t) {
     theme: t.theme || "default",
     themeOverrides: t.themeOverrides || null,
     timing: { comparison: "best", ...(t.timing || {}) },
+    groups: t.groups && typeof t.groups === "object" ? JSON.parse(JSON.stringify(t.groups)) : {},
     elements: [],
   };
   for (const raw of t.elements || []) {
@@ -51,8 +53,10 @@ export function normalizeTemplate(t) {
       locked: !!raw.locked,
       props: { ...(d.props || {}), ...(raw.props || {}) },
       style: raw.style || null,
+      ...(raw.group ? { group: String(raw.group) } : {}),
     });
   }
+  normalizeGroups(out);
   if (!(t.colorRoles >= COLOR_ROLES)) migrateColorRoles(out.elements);
   out.colorRoles = COLOR_ROLES;
   return out;
@@ -94,8 +98,10 @@ export function serializeTemplate(t) {
         if (!o.locked) delete o.locked;
         if (o.rotation === 0) delete o.rotation;
         if (o.opacity === 1) delete o.opacity;
+        if (!o.group) delete o.group;
         return o;
       }),
+      groups: t.groups && Object.keys(t.groups).length ? t.groups : undefined,
       themeOverrides: t.themeOverrides || undefined,
     },
     null,

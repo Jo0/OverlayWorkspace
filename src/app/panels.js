@@ -1,6 +1,7 @@
 // Left-hand panels: data (session + laps), video (load, flip, sync), layers.
 
 import { importers, widgets } from "../core/registry.js";
+import { groupMembers, makeGroup, moveLayer, newGroupId, normalizeGroups, ungroup } from "../core/arrange.js";
 import { newElementId, normalizeTemplate } from "../core/template.js";
 import { formatClock, formatLapTime } from "../core/units.js";
 import { importData } from "../importers/index.js";
@@ -10,7 +11,7 @@ import { parseNmea } from "../video/nmea.js";
 import { matchClockOffset } from "../core/gps-sync.js";
 import { $, clear, h, pickFile, pickFiles } from "./dom.js";
 import { getVideoElement, seekVideoToTime } from "./stage.js";
-import { applyComparison, emit, history, on, select, setSession, setStatus, setTime, state } from "./state.js";
+import { applyComparison, emit, history, on, select, setSelection, setSession, setStatus, setTime, state } from "./state.js";
 
 export function initPanels() {
   buildDataPanel();
@@ -26,6 +27,8 @@ export function initPanels() {
   on("layers-changed", buildLayers);
   on("delete-element", deleteElement);
   on("duplicate-element", duplicateElement);
+  on("group", groupSelection);
+  on("ungroup", ungroupSelection);
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -325,6 +328,12 @@ function coverage(v) {
 }
 
 // ── Layers ───────────────────────────────────────────────────────────────────
+//
+// Front-most at the top. A group is one row with its members indented under
+// it. Click picks one row (a group row picks the whole group); Shift or
+// Ctrl/Cmd-click adds or removes.
+
+const collapsed = new Set(); // group ids folded in the list (view only, not saved)
 
 function buildLayers() {
   const root = clear($("#panel-layers"));
@@ -335,25 +344,60 @@ function buildLayers() {
   add.addEventListener("change", () => { if (add.value) addElement(add.value); add.value = ""; });
   root.append(h("div", { class: "panel-head" }, h("h2", {}, "Layers"), add));
   const list = h("ul", { class: "layers" });
-  const els = state.template.elements;
+  const t = state.template;
+  const els = t.elements;
+  const sel = new Set(state.selection);
+  const pick = (e, ids, single) => {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      const cur = new Set(state.selection);
+      const allIn = ids.every((i) => cur.has(i));
+      for (const i of ids) allIn ? cur.delete(i) : cur.add(i);
+      setSelection([...cur]);
+    } else if (single) select(ids[0], { single: true });
+    else setSelection(ids);
+  };
+  const seenGroups = new Set();
   for (let i = els.length - 1; i >= 0; i--) {
     const el = els[i];
+    if (el.group && !seenGroups.has(el.group)) {
+      seenGroups.add(el.group);
+      const gid = el.group;
+      const members = groupMembers(t, gid);
+      const ids = members.map((m) => m.id);
+      const allHidden = members.every((m) => m.hidden), allLocked = members.every((m) => m.locked);
+      const open = !collapsed.has(gid);
+      const fold = h("button", { class: "icon", title: open ? "Fold" : "Unfold", onclick: (e) => { e.stopPropagation(); open ? collapsed.add(gid) : collapsed.delete(gid); buildLayers(); } }, open ? "▾" : "▸");
+      const eye = h("button", { class: "icon", title: allHidden ? "Show group" : "Hide group", onclick: (e) => { e.stopPropagation(); for (const m of members) m.hidden = !allHidden; emit("element", null); history.push(); buildLayers(); } }, allHidden ? "◌" : "●");
+      const up = h("button", { class: "icon", title: "Bring group forward", onclick: (e) => { e.stopPropagation(); reorder(el.id, 1, false); } }, "▲");
+      const down = h("button", { class: "icon", title: "Send group backward", onclick: (e) => { e.stopPropagation(); reorder(el.id, -1, false); } }, "▼");
+      const whole = ids.every((x) => sel.has(x));
+      list.append(h("li", { class: `group-row${whole ? " sel" : ""}`, onclick: (e) => pick(e, ids, false) },
+        fold, eye, h("span", { class: "layer-name" }, (t.groups[gid] && t.groups[gid].name) || "Group", allLocked ? " 🔒" : ""),
+        h("span", { class: "muted small" }, `group · ${members.length}`), up, down));
+    }
+    if (el.group && collapsed.has(el.group)) continue;
     const eye = h("button", { class: "icon", title: el.hidden ? "Show" : "Hide", onclick: (e) => { e.stopPropagation(); el.hidden = !el.hidden; emit("element", el); history.push(); buildLayers(); } }, el.hidden ? "◌" : "●");
-    const up = h("button", { class: "icon", title: "Bring forward", onclick: (e) => { e.stopPropagation(); move(i, 1); } }, "▲");
-    const down = h("button", { class: "icon", title: "Send backward", onclick: (e) => { e.stopPropagation(); move(i, -1); } }, "▼");
-    list.append(h("li", { class: el.id === state.selectedId ? "sel" : "", onclick: () => select(el.id) },
+    const up = h("button", { class: "icon", title: "Bring forward", onclick: (e) => { e.stopPropagation(); reorder(el.id, 1, true); } }, "▲");
+    const down = h("button", { class: "icon", title: "Send backward", onclick: (e) => { e.stopPropagation(); reorder(el.id, -1, true); } }, "▼");
+    list.append(h("li", { class: `${el.group ? "in-group " : ""}${sel.has(el.id) ? "sel" : ""}`, onclick: (e) => pick(e, [el.id], true) },
       eye, h("span", { class: "layer-name" }, el.name, el.locked ? " 🔒" : ""), h("span", { class: "muted small" }, el.type), up, down));
   }
   root.append(list);
+  if (state.selection.length > 1 || seenGroups.size) {
+    root.append(h("p", { class: "muted small layers-hint" }, "Shift-click to select several. Ctrl+G groups them, Ctrl+Shift+G ungroups. On the stage, a click takes a whole group; Ctrl-click or double-click picks one element in it."));
+  }
 }
 
-function move(i, d) {
-  const els = state.template.elements;
-  const j = i + d;
-  if (j < 0 || j >= els.length) return;
-  [els[i], els[j]] = [els[j], els[i]];
-  emit("template", state.template);
-  history.push();
+/** Moves a layer one step; `single` moves a grouped element within its group instead of the whole group. */
+function reorder(id, dir, single) {
+  if (moveLayer(state.template, id, dir, single)) {
+    emit("template", state.template);
+    history.push();
+  }
+}
+
+function asList(x) {
+  return Array.isArray(x) ? x : x ? [x] : [];
 }
 
 function addElement(type) {
@@ -368,24 +412,69 @@ function addElement(type) {
   history.push();
 }
 
-function deleteElement(el) {
-  const els = state.template.elements;
-  const i = els.indexOf(el);
-  if (i < 0) return;
-  els.splice(i, 1);
-  select(null);
-  emit("template", state.template);
+function deleteElement(x) {
+  const gone = new Set(asList(x).map((e) => e.id));
+  if (!gone.size) return;
+  const t = state.template;
+  t.elements = t.elements.filter((e) => !gone.has(e.id));
+  normalizeGroups(t);
+  setSelection([]);
+  emit("template", t);
   history.push();
 }
 
-function duplicateElement(el) {
-  const copy = JSON.parse(JSON.stringify(el));
-  copy.id = newElementId(el.type);
-  copy.name = `${el.name} copy`;
-  copy.x += 40;
-  copy.y += 40;
-  state.template.elements.push(copy);
-  emit("template", state.template);
-  select(copy.id);
+/** Copies elements on top of the layer list, 40 px down-right. A copied group becomes a new group. */
+function duplicateElement(x) {
+  const t = state.template;
+  const src = asList(x);
+  if (!src.length) return;
+  const newGroup = new Map();
+  const copies = src.map((el) => {
+    const copy = JSON.parse(JSON.stringify(el));
+    copy.id = newElementId(el.type);
+    copy.name = src.length === 1 ? `${el.name} copy` : el.name;
+    copy.x += 40;
+    copy.y += 40;
+    if (el.group) {
+      // Only a group copied whole stays a group; a lone member's copy is loose.
+      const whole = groupMembers(t, el.group).every((m) => src.includes(m));
+      if (whole) {
+        if (!newGroup.has(el.group)) {
+          const gid = newGroupId();
+          t.groups[gid] = { name: `${(t.groups[el.group] && t.groups[el.group].name) || "Group"} copy` };
+          newGroup.set(el.group, gid);
+        }
+        copy.group = newGroup.get(el.group);
+      } else delete copy.group;
+    }
+    return copy;
+  });
+  t.elements.push(...copies);
+  normalizeGroups(t);
+  emit("template", t);
+  setSelection(copies.map((c) => c.id));
+  history.push();
+}
+
+function groupSelection(x) {
+  const t = state.template;
+  const ids = asList(x).map((e) => e.id);
+  if (ids.length < 2) {
+    setStatus("Select two or more elements to group them (Shift-click or drag a box).", "info");
+    return;
+  }
+  makeGroup(t, ids);
+  emit("template", t);
+  setSelection(ids);
+  history.push();
+}
+
+function ungroupSelection(x) {
+  const t = state.template;
+  const ids = asList(x).map((e) => e.id);
+  const freed = ungroup(t, ids);
+  if (!freed.length) return;
+  emit("template", t);
+  setSelection(freed);
   history.push();
 }

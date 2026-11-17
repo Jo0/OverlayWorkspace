@@ -204,6 +204,7 @@ Font notes:
   "theme": "default",
   "themeOverrides": { "colors": { "accent": "#00B7FF" } },  // optional
   "timing": { "comparison": "best", "sections": 10 },  // "best", "theoretical" or a lap number; sections: parts per lap for "theoretical"
+  "groups": { "g1": { "name": "Speed and pedals" } },  // optional, see below
   "elements": [
     {
       "id": "speed", "type": "readout", "name": "Speed",
@@ -211,13 +212,18 @@ Font notes:
       "anchor": "bl",          // tl tc tr ml mc mr bl bc br
       "rotation": 0, "opacity": 1,
       "props": { "channel": "@speed", "unit": "mph", "label": "MPH" },
-      "style": { "panel": { "shape": "pill" } }   // optional per-element theme override
+      "style": { "panel": { "shape": "pill" } },  // optional per-element theme override
+      "group": "g1"            // optional: a key of "groups"
     }
   ]
 }
 ```
 
 Then add it to `templates/index.json`.
+
+**Groups** are flat (no groups inside groups). Members are kept next to each
+other in `elements`, so a group is one block in the layer order; a group needs
+two or more members, and unused entries in `groups` are dropped on load.
 
 **Anchors:** if you export at another aspect ratio (say a 9:16 vertical
 video), elements scale uniformly and stay pinned to their anchor corner or

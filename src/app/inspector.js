@@ -1,13 +1,15 @@
-// Right-hand inspector. With an element selected: its exact position/size and
-// the widget's props (built from the widget's prop descriptors). With nothing
-// selected: template settings and theme overrides.
+// Right-hand inspector. With one element selected: its exact position/size and
+// the widget's props (built from the widget's prop descriptors). With several:
+// their bounds, align/distribute and grouping. With nothing selected:
+// template settings and theme overrides.
 
+import { ALIGN_EDGES, align, bounds, distribute, groupMembers, normalizeGroups, scaleInto, units } from "../core/arrange.js";
 import { channelChoices } from "../core/frame.js";
 import { shapes, widgets } from "../core/registry.js";
 import { ANCHORS } from "../core/template.js";
 import { unitsFor, DIMENSIONS } from "../core/units.js";
 import { clear, h } from "./dom.js";
-import { commitSoon, emit, history, on, refreshTheme, selected, state, applyComparison } from "./state.js";
+import { commitSoon, emit, history, on, refreshTheme, selected, selectedElements, setSelection, state, applyComparison } from "./state.js";
 
 let root;
 
@@ -16,9 +18,18 @@ export function initInspector() {
   on("selection", build);
   on("template", build);
   on("session", build);
-  on("theme", () => { if (!selected()) return; build(); });
+  on("layers-changed", () => { if (state.selection.length > 1) build(); });
+  on("theme", () => { if (!state.selection.length) return; build(); });
   // Keep position fields live while dragging, without rebuilding the form.
   on("element", (el) => {
+    if (state.selection.length > 1) {
+      const b = bounds(selectedElements());
+      for (const k of ["x", "y", "w", "h"]) {
+        const input = root.querySelector(`[data-sgeom="${k}"]`);
+        if (input && b && document.activeElement !== input) input.value = Math.round(b[k]);
+      }
+      return;
+    }
     if (!el || el.id !== state.selectedId) return;
     for (const k of ["x", "y", "w", "h"]) {
       const input = root.querySelector(`[data-geom="${k}"]`);
@@ -39,8 +50,9 @@ function changed(el) {
 function build() {
   if (!root) return;
   clear(root);
-  const el = selected();
-  if (el) buildElement(el);
+  const els = selectedElements();
+  if (els.length > 1) buildSelection(els);
+  else if (els.length === 1) buildElement(els[0]);
   else buildTemplate();
 }
 
@@ -75,6 +87,9 @@ function buildElement(el) {
       row("Rotation °", numberInput(el.rotation, { step: 1 }, (v) => { el.rotation = v; changed(el); })),
       row("Opacity", numberInput(el.opacity, { step: 0.05, min: 0, max: 1 }, (v) => { el.opacity = Math.min(1, Math.max(0, v)); changed(el); }))),
   ));
+
+  if (el.group) root.append(groupNote(el));
+  root.append(arrangeSection([el]));
 
   if (def && def.props) {
     const sec = h("section", { class: "insp-section" }, h("h3", {}, "Settings"));
@@ -169,6 +184,135 @@ function dimensionOf(ref) {
   return guess && DIMENSIONS[guess] ? guess : "none";
 }
 
+// ── Arrange (alignment, groups, several elements) ────────────────────────────
+
+const ALIGN_ICONS = {
+  left: '<path d="M2 1v14"/><rect x="4" y="3" width="9" height="3"/><rect x="4" y="9" width="6" height="3"/>',
+  hcenter: '<path d="M8 1v14"/><rect x="3" y="3" width="10" height="3"/><rect x="5" y="9" width="6" height="3"/>',
+  right: '<path d="M14 1v14"/><rect x="3" y="3" width="9" height="3"/><rect x="6" y="9" width="6" height="3"/>',
+  top: '<path d="M1 2h14"/><rect x="3" y="4" width="3" height="9"/><rect x="9" y="4" width="3" height="6"/>',
+  vcenter: '<path d="M1 8h14"/><rect x="3" y="3" width="3" height="10"/><rect x="9" y="5" width="3" height="6"/>',
+  bottom: '<path d="M1 14h14"/><rect x="3" y="3" width="3" height="9"/><rect x="9" y="6" width="3" height="6"/>',
+  x: '<path d="M1 2v12M15 2v12"/><rect x="3" y="5" width="3" height="6"/><rect x="10" y="5" width="3" height="6"/>',
+  y: '<path d="M2 1h12M2 15h12"/><rect x="5" y="3" width="6" height="3"/><rect x="5" y="10" width="6" height="3"/>',
+};
+const ALIGN_LABELS = { left: "Align left edges", hcenter: "Align horizontal centers", right: "Align right edges", top: "Align top edges", vcenter: "Align vertical centers", bottom: "Align bottom edges", x: "Distribute horizontally (equal gaps)", y: "Distribute vertically (equal gaps)" };
+
+function iconButton(kind, onClick, disabled = false) {
+  const b = h("button", { class: "icon-btn", type: "button", title: ALIGN_LABELS[kind], disabled, onclick: onClick });
+  b.innerHTML = `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">${ALIGN_ICONS[kind]}</svg>`;
+  b.setAttribute("aria-label", ALIGN_LABELS[kind]);
+  return b;
+}
+
+function canvasRect() {
+  const c = state.template.canvas;
+  return { x: 0, y: 0, w: c.width, h: c.height };
+}
+
+function arranged(els) {
+  for (const el of els) emit("element", el);
+  history.push();
+  build();
+}
+
+/**
+ * Align/distribute buttons. With one unit (an element, or one group) it
+ * aligns to the canvas; with more, to the selection unless "Canvas" is picked.
+ */
+let alignTo = "selection";
+function arrangeSection(els) {
+  const us = units(els);
+  const multi = us.length > 1;
+  const sec = h("section", { class: "insp-section" }, h("h3", {}, multi ? "Align and distribute" : "Align to canvas"));
+  let toSel = null;
+  if (multi) {
+    toSel = selectInput([{ value: "selection", label: "the selection" }, { value: "canvas", label: "the canvas" }], alignTo, (v) => { alignTo = v; });
+    sec.append(h("label", { class: "field inline-field" }, h("span", { class: "field-label" }, "Relative to"), toSel));
+  }
+  const ref = () => (multi && alignTo === "selection" ? bounds(els) : canvasRect());
+  const row1 = h("div", { class: "icon-row" });
+  for (const edge of ALIGN_EDGES) row1.append(iconButton(edge, () => { if (align(us, edge, ref())) arranged(els); }));
+  sec.append(row1);
+  if (multi) {
+    const few = us.length < 3;
+    sec.append(h("div", { class: "icon-row" },
+      iconButton("x", () => { if (distribute(us, "x")) arranged(els); }, few),
+      iconButton("y", () => { if (distribute(us, "y")) arranged(els); }, few),
+      h("span", { class: "muted small" }, few ? "Distribute needs 3 or more." : "Equal gaps; the outermost stay put.")));
+  }
+  if (us.some((u) => u.locked)) sec.append(h("p", { class: "muted small" }, "Locked elements stay where they are."));
+  return sec;
+}
+
+/** Inspector for two or more selected elements. */
+function buildSelection(els) {
+  const t = state.template;
+  const gids = [...new Set(els.map((e) => e.group).filter(Boolean))];
+  const oneGroup = gids.length === 1 && els.every((e) => e.group === gids[0]) && groupMembers(t, gids[0]).length === els.length;
+  root.append(h("div", { class: "insp-head" },
+    h("h2", {}, oneGroup ? "Group" : `${els.length} elements`),
+    h("p", { class: "muted small" }, oneGroup
+      ? "Moves, resizes and aligns as one. Ctrl-click or double-click an element on the stage to edit it alone."
+      : "Drag any of them to move them all; the handles resize them together. Shift-click adds or removes.")));
+
+  if (oneGroup) {
+    root.append(h("section", { class: "insp-section" },
+      row("Group name", textInput(t.groups[gids[0]].name, (v) => { t.groups[gids[0]].name = v; commitSoon(); emit("layers-changed"); }))));
+  }
+
+  // The selection's bounds: X/Y move everything, W/H scale everything.
+  const b = bounds(els);
+  const geom = h("div", { class: "grid-4" });
+  for (const k of ["x", "y", "w", "h"]) {
+    const input = h("input", { type: "number", step: 1, value: Math.round(b[k]), dataset: { sgeom: k } });
+    input.addEventListener("change", () => {
+      const v = Number(input.value);
+      if (!Number.isFinite(v)) return;
+      const movable = els.filter((e) => !e.locked);
+      const cur = bounds(movable);
+      if (!cur) return;
+      const to = { ...cur };
+      to[k] = k === "w" || k === "h" ? Math.max(1, Math.round(v)) : Math.round(v);
+      scaleInto(movable, movable.map((e) => ({ x: e.x, y: e.y, w: e.w, h: e.h })), cur, to);
+      arranged(movable);
+    });
+    geom.append(h("label", { class: "field compact" }, h("span", { class: "field-label" }, k.toUpperCase()), input));
+  }
+  root.append(h("section", { class: "insp-section" }, h("h3", {}, "Bounds (design px)"), geom,
+    h("p", { class: "muted small" }, "X/Y move them all; W/H scale them all from the top-left.")));
+
+  root.append(arrangeSection(els));
+
+  const anyHidden = els.some((e) => e.hidden), allLocked = els.every((e) => e.locked);
+  root.append(h("div", { class: "insp-actions" },
+    oneGroup ? h("button", { onclick: () => emit("ungroup", els), title: "Ctrl+Shift+G" }, "Ungroup")
+      : h("button", { onclick: () => emit("group", els), title: "Ctrl+G" }, "Group"),
+    !oneGroup && gids.length ? h("button", { onclick: () => emit("ungroup", els), title: "Ctrl+Shift+G" }, "Ungroup") : null,
+    h("button", { onclick: () => emit("duplicate-element", els), title: "Ctrl+D" }, "Duplicate"),
+    h("button", { onclick: () => { for (const e of els) e.hidden = !anyHidden; emit("element", null); history.push(); emit("layers-changed"); build(); } }, anyHidden ? "Show" : "Hide"),
+    h("button", { onclick: () => { for (const e of els) e.locked = !allLocked; emit("element", null); history.push(); emit("layers-changed"); build(); } }, allLocked ? "Unlock" : "Lock"),
+    h("button", { class: "danger", onclick: () => emit("delete-element", els) }, "Delete"),
+  ));
+}
+
+/** For one element that's in a group: say so, with a way out. */
+function groupNote(el) {
+  const t = state.template;
+  const g = t.groups[el.group];
+  return h("section", { class: "insp-section group-note" },
+    h("p", { class: "small" }, "In group ", h("strong", {}, (g && g.name) || "Group"), "."),
+    h("div", { class: "row-inline" },
+      h("button", { onclick: () => setSelection(groupMembers(t, el.group).map((m) => m.id)) }, "Select group"),
+      h("button", { onclick: () => {
+        delete el.group;
+        normalizeGroups(t);
+        emit("template", t);
+        setSelection([el.id]);
+        history.push();
+      } }, "Remove from group")));
+}
+
 // ── Template + theme ─────────────────────────────────────────────────────────
 
 const SESSION_TYPES = ["autocross", "track", "rally", "karting", "drag", "hillclimb", "custom"];
@@ -177,7 +321,7 @@ function buildTemplate() {
   const t = state.template;
   if (!t) return;
   const commit = () => { emit("template", t); history.push(); };
-  root.append(h("div", { class: "insp-head" }, h("h2", {}, "Template"), h("p", { class: "muted small" }, "Click an element on the stage to edit it. Arrow keys nudge 1 px (Shift: 10 px). Alt while dragging disables snapping.")));
+  root.append(h("div", { class: "insp-head" }, h("h2", {}, "Template"), h("p", { class: "muted small" }, "Click an element on the stage to edit it; Shift-click or drag a box to select several (Ctrl+A: all). Arrow keys nudge 1 px (Shift: 10 px). Alt while dragging disables snapping.")));
   root.append(h("section", { class: "insp-section" },
     row("Name", textInput(t.name, (v) => { t.name = v; commitSoon(); })),
     row("Session type", selectInput(SESSION_TYPES.map((s) => ({ value: s, label: s })), t.sessionType, (v) => { t.sessionType = v; commitSoon(); }, true)),
