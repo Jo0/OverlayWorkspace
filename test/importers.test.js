@@ -140,6 +140,16 @@ test("generic CSV: RaceCapture-style header cells and empty cells at lower sampl
   assert.equal(s.laps.length, 1);
 });
 
+test("generic CSV: current RaceCapture header cells (label|units|min|max|rate)", () => {
+  const text = '"Interval"|"ms"|0|0|1,"Utc"|"ms"|0|0|1,"Latitude"|"Degrees"|-180.000000|180.000000|10,"Longitude"|"Degrees"|-180.000000|180.000000|10,"Speed"|"mph"|0.00|150.00|10\n' +
+    rowsOf(50, (i) => [i * 100, 1.7e12 + i * 100, 40, -100, 30]);
+  const t = sniffTable(text), m = guessMapping(t);
+  assert.deepEqual(t.headers, ["Interval", "Utc", "Latitude", "Longitude", "Speed"]);
+  assert.deepEqual(t.units, ["ms", "ms", "Degrees", "Degrees", "mph"]);
+  assert.equal(t.headers[m.time], "Utc");
+  assert.equal(m.speedUnit, "mph");
+});
+
 test("generic CSV: AiM-style metadata, units row and beacon markers", () => {
   const text = '"Format","AiM CSV File"\n"Venue","Test"\n"Beacon Markers",10.5,40.2,71.0\n\n"Time","Distance","GPS Speed","GPS Latitude","GPS Longitude"\n"s","km","km/h","deg","deg"\n' +
     rowsOf(800, (i) => [(i / 10).toFixed(1), (i * 0.003).toFixed(3), 72, 40, -100]);

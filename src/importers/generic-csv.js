@@ -68,8 +68,10 @@ export function sniffTable(text, maxRows = Infinity) {
     }
   }
   if (!best) return null;
-  // RaceCapture writes each header cell as "Name"|"unit"|rate.
-  if (best.headers.every((h) => /^[^|]+\|[^|]*\|\d+$/.test(h))) {
+  // RaceCapture writes each header cell as "Label"|"units"|min|max|sampleRate
+  // (src/logger/fileWriter.c in its open-source firmware; older logs seen
+  // with just "Label"|"units"|rate).
+  if (best.headers.every((h) => /^[^|]+\|[^|]*(\|-?[\d.]+)+$/.test(h))) {
     const parts = best.headers.map((h) => h.split("|"));
     best.headers = parts.map((p) => p[0]);
     best.units = parts.map((p) => p[1]);
