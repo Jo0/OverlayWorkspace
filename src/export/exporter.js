@@ -6,6 +6,7 @@
 
 import { makeFrame } from "../core/frame.js";
 import { widgets } from "../core/registry.js";
+import { loadThemeFonts } from "../core/theme.js";
 import { Mp4Writer } from "./mp4-writer.js";
 
 export const FPS_PRESETS = [
@@ -48,7 +49,8 @@ export async function pickEncoderConfig({ width, height, fps, bitrate }) {
 }
 
 /** Waits until all elements' widgets have loaded what they need (images, fonts). */
-async function prepareTemplate(template) {
+async function prepareTemplate(template, theme) {
+  await loadThemeFonts(theme);
   await Promise.all(template.elements.map((el) => {
     const w = widgets.get(el.type);
     return w && w.prepare ? w.prepare(el) : null;
@@ -69,7 +71,7 @@ async function prepareTemplate(template) {
  */
 export async function exportOverlay(o) {
   const { template, theme, session, timing, renderer, t0, t1, fps, width, height, bitrate, colorSink, alphaSink, onProgress, signal } = o;
-  await prepareTemplate(template);
+  await prepareTemplate(template, theme);
   const config = await pickEncoderConfig({ width, height, fps, bitrate });
   const frameDur = fps.den / fps.num;
   const total = Math.max(1, Math.round((t1 - t0) / frameDur));

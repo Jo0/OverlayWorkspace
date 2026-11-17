@@ -154,7 +154,8 @@ the delta bar and the Shape element.
     "label":   { "family": "Oswald, sans-serif", "weight": 400, "letterSpacing": 0.1 }
   },
   "fontFaces": [              // optional web fonts, loaded before drawing
-    { "family": "Oswald", "src": "fonts/Oswald-SemiBold.woff2", "weight": 600 }
+    { "family": "Oswald", "src": "fonts/Oswald-SemiBold.woff2", "weight": 600 },          // a font file
+    { "family": "Teko", "css": "https://fonts.googleapis.com/css2?family=Teko:wght@600&display=swap" }  // a stylesheet
   ],
   "panel": {
     "shape": "chamfer", "radius": 30, "corners": "tl br",
@@ -185,7 +186,14 @@ Keep `neutral`, `marker` and `track` clearly apart from `good` and `bad`.
 `test/themes.test.js` checks every bundled theme for this (color difference
 ΔE ≥ 25, judged over dark asphalt); add yours to `index.json` and run it.
 
+The easiest way to make one: edit the look in the app's theme editor and use
+**Save as theme…**. It writes every setting out.
+
 Font notes:
+
+- **Web fonts by stylesheet** (`css`): the font picker writes these for Google
+  Fonts, asking only for weights the family has (the API rejects the whole
+  request otherwise). Entries no font role uses any more are dropped.
 
 - **`tabular`** lays out digits at a fixed width, so numbers don't jitter
   even when the font's digits are proportional.
@@ -203,6 +211,7 @@ Font notes:
   "canvas": { "width": 3840, "height": 2160 },   // design pixels
   "theme": "default",
   "themeOverrides": { "colors": { "accent": "#00B7FF" } },  // optional
+  "themeData": { ... },        // written on save when "theme" is one of the user's own themes: a full copy, so the file opens elsewhere
   "timing": { "comparison": "best", "sections": 10 },  // "best", "theoretical" or a lap number; sections: parts per lap for "theoretical"
   "groups": { "g1": { "name": "Speed and pedals" } },  // optional, see below
   "elements": [

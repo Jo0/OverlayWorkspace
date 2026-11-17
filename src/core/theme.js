@@ -79,23 +79,57 @@ export function applyFont(ctx, theme, role, px) {
 }
 
 const loadedFaces = new Set();
+const stylesheets = new Map(); // url -> Promise
 
-/** Loads the theme's custom font files (if any) so canvas text can use them. */
+function loadStylesheet(url) {
+  if (!stylesheets.has(url)) {
+    stylesheets.set(url, new Promise((resolve, reject) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = url;
+      link.onload = resolve;
+      link.onerror = () => { stylesheets.delete(url); link.remove(); reject(new Error(`couldn't load ${url}`)); };
+      document.head.append(link);
+    }));
+  }
+  return stylesheets.get(url);
+}
+
+function firstFamily(stack) {
+  const m = String(stack || "").trim().match(/^(?:'([^']*)'|"([^"]*)"|([^,]+))/);
+  return m ? (m[1] ?? m[2] ?? m[3]).trim().toLowerCase() : "";
+}
+
+/**
+ * Loads the theme's custom fonts so canvas text can use them: font files
+ * ({ family, src }) and web-font stylesheets ({ family, css }, e.g. Google
+ * Fonts). A stylesheet only declares its fonts; the weights the theme's font
+ * roles use are then fetched explicitly, since canvas drawing doesn't
+ * trigger a download the way page text does.
+ */
 export async function loadThemeFonts(theme) {
   if (typeof FontFace === "undefined" || typeof document === "undefined") return;
   const faces = (theme && theme.fontFaces) || [];
+  const roles = Object.values((theme && theme.fonts) || {});
   await Promise.all(
     faces.map(async (f) => {
-      const key = `${f.family}|${f.src}|${f.weight || ""}|${f.style || ""}`;
-      if (loadedFaces.has(key)) return;
       try {
+        if (f.css) {
+          await loadStylesheet(f.css);
+          const uses = roles.filter((r) => firstFamily(r.family) === String(f.family).toLowerCase());
+          await Promise.all((uses.length ? uses : [{ weight: 400 }]).map((r) =>
+            document.fonts.load(`${r.style || "normal"} ${r.weight || 400} 40px "${f.family}"`)));
+          return;
+        }
+        const key = `${f.family}|${f.src}|${f.weight || ""}|${f.style || ""}`;
+        if (loadedFaces.has(key)) return;
         const src = /^url\(/.test(f.src) ? f.src : `url(${JSON.stringify(f.src)})`;
         const face = new FontFace(f.family, src, { weight: String(f.weight || "400"), style: f.style || "normal" });
         await face.load();
         document.fonts.add(face);
         loadedFaces.add(key);
       } catch (e) {
-        console.warn(`Font "${f.family}" failed to load from ${f.src}:`, e);
+        console.warn(`Font "${f.family}" failed to load:`, e);
       }
     }),
   );

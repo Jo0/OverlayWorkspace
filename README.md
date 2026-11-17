@@ -13,7 +13,9 @@ alpha matte that any editor (or ffmpeg) can put over your footage.
 - **Templates per kind of session.** Autocross, track day, rally stage, and
   blank. Save your own as `.template.json` files.
 - **Themes.** Named colors, font roles, panel shapes, text outline and shadow.
-  Change them per template, or per element with a style override.
+  Change them per template, or per element with a style override. Pick fonts
+  from Google Fonts (previewed in the picker) or your installed fonts, and save
+  the result as a theme file to reuse or share.
 - **Runs in the browser.** Everything happens on your computer; files are
   never uploaded. Export uses the browser's built-in video encoder (WebCodecs),
   hardware-accelerated where available.
@@ -61,6 +63,16 @@ untested.
    stage, fine-tune them in the inspector. With nothing selected, the
    inspector edits the template itself: canvas size, theme, colors, fonts,
    panel shape. Save it (**Save…**) to reuse it at the next event.
+   - **Theme editor:** with nothing selected, the inspector edits the theme:
+     colors, fonts (**Choose…** opens the font picker), panels, text outline
+     and shadow. Changes belong to the template until you **Save as
+     theme…**, which writes a `.theme.json` file and adds it to *your themes*
+     in the Theme menu. **Open theme…** loads one. A template saved with one
+     of your themes carries a copy of it, so it opens the same elsewhere.
+   - **Fonts:** Google Fonts are free to use in videos and load from
+     fonts.googleapis.com when a theme uses them (so the editor needs internet
+     for them). An installed font works only on computers that have it; Chrome
+     and Edge can list yours, other browsers take the name typed in.
    - **Several at once:** Shift-click, drag a box over empty space, or
      Ctrl+A. Drag any of them to move them all; the handles resize them
      together. The inspector then aligns them (to each other or to the
@@ -187,14 +199,16 @@ src/export/               WebCodecs exporter, MP4 writer, file sinks
 src/video/                video recording time, DJI GPS track, NMEA reader
 src/app/                  editor UI: stage, inspector, panels, timeline, export dialog
 templates/, themes/       JSON, listed in each folder's index.json
+data/google-fonts.json    font picker catalog (tools/update-google-fonts.py rebuilds it)
 test/                     node --test unit tests (synthetic data)
 tools/serve.py            local dev server
+tools/update-google-fonts.py  refreshes data/google-fonts.json from Google Fonts' public metadata
 ```
 
 ## Development
 
 ```bash
-node --test test/*.test.js   # unit tests: importer, timing, units, placement, MP4 writer
+node --test test/*.test.js   # unit tests: importer, timing, units, placement, MP4 writer, arrange, fonts, themes
 ```
 
 The dev server accepts `PUT /samples/out/<file>` so automated browser tests can
@@ -214,7 +228,7 @@ startup (same-origin paths only).
 - [ ] Auto-sync for GoPro (GPMF GPS)
 - [ ] Official times / penalties per lap (autocross cones), shown on the timer
 - [x] Multi-select, alignment tools, element groups
-- [ ] Web font picker; theme editor that can save a theme file
+- [x] Web font picker; theme editor that can save a theme file
 
 ## License
 

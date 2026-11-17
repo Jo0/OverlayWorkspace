@@ -26,6 +26,7 @@ export function initStage() {
   on("template", () => { renderer.invalidate(); layout(); });
   on("element", () => renderer.invalidate());
   on("theme", () => renderer.invalidate());
+  on("fonts-loaded", () => { renderer.invalidate(); invalidate(); });
   on("session", () => renderer.invalidate());
   on("video", syncVideoElement);
   on("time", markOutOfClip);

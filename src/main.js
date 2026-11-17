@@ -13,6 +13,7 @@ import { initPanels, loadDataFile, loadVideoFile } from "./app/panels.js";
 import { initStage, invalidate } from "./app/stage.js";
 import { history, loadAutosave, on, setStatus, setTemplate, state } from "./app/state.js";
 import { initTimeline } from "./app/timeline.js";
+import { addUserTheme, builtinThemes, isBuiltin, loadUserThemes } from "./app/theme-library.js";
 
 async function fetchJson(url) {
   const r = await fetch(url);
@@ -25,8 +26,10 @@ async function loadLibrary() {
   for (const t of themeList) {
     const theme = await fetchJson(`themes/${t.file}`);
     state.themes.set(theme.id || t.id, theme);
+    builtinThemes.add(theme.id || t.id);
     loadThemeFonts(theme).then(invalidate);
   }
+  loadUserThemes();
   const tplList = await fetchJson("templates/index.json");
   state.templateList = [];
   for (const t of tplList) {
@@ -55,7 +58,12 @@ function buildHeader() {
     try {
       const text = await f.text();
       if (!text.trim()) throw new Error("the file is empty (0 bytes). It was probably saved by an earlier version that could fail silently; save the layout again");
-      setTemplate(JSON.parse(text));
+      const data = JSON.parse(text);
+      // A template saved with one of "your themes" carries a copy of it.
+      if (data && data.themeData && data.theme && !state.themes.has(data.theme)) {
+        data.theme = addUserTheme({ ...data.themeData, id: data.theme }).id;
+      }
+      setTemplate(data);
       setStatus(`Opened ${f.name}.`, "ok");
     } catch (e) {
       setStatus(`Couldn't open ${f.name}: ${e.message}`, "error");
@@ -64,7 +72,11 @@ function buildHeader() {
   $("#btn-save").addEventListener("click", async () => {
     const name = (state.template.name || "overlay").replace(/[^\w.-]+/g, "_");
     try {
-      const r = await saveTextFile(serializeTemplate(state.template), `${name}.template.json`);
+      let text = serializeTemplate(state.template);
+      // Your own themes aren't on other computers: put a copy in the file.
+      const id = state.template.theme;
+      if (!isBuiltin(id) && state.themes.has(id)) text = JSON.stringify({ ...JSON.parse(text), themeData: state.themes.get(id) }, null, 2);
+      const r = await saveTextFile(text, `${name}.template.json`);
       if (r.status === "saved") setStatus(`Saved ${r.name}.`, "ok");
       else if (r.status === "downloaded") {
         setStatus(r.reason

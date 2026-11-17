@@ -8,7 +8,7 @@
 import { expandToGroups } from "../core/arrange.js";
 import { Timing } from "../core/timing.js";
 import { serializeTemplate, normalizeTemplate } from "../core/template.js";
-import { resolveTheme } from "../core/theme.js";
+import { loadThemeFonts, resolveTheme } from "../core/theme.js";
 
 export const state = {
   session: null,
@@ -99,6 +99,9 @@ export function setTime(t) {
 export function refreshTheme() {
   state.theme = resolveTheme(state.baseTheme || {}, state.template && state.template.themeOverrides);
   emit("theme", state.theme);
+  // Web fonts arrive later; redraw when they do.
+  const theme = state.theme;
+  loadThemeFonts(theme).then(() => { if (state.theme === theme) emit("fonts-loaded", theme); });
 }
 
 export function setTemplate(t, { keepHistory = false } = {}) {

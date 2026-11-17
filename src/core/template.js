@@ -102,7 +102,7 @@ export function serializeTemplate(t) {
         return o;
       }),
       groups: t.groups && Object.keys(t.groups).length ? t.groups : undefined,
-      themeOverrides: t.themeOverrides || undefined,
+      themeOverrides: t.themeOverrides && Object.keys(t.themeOverrides).length ? t.themeOverrides : undefined,
     },
     null,
     2,

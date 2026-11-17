@@ -9,7 +9,9 @@ import { shapes, widgets } from "../core/registry.js";
 import { ANCHORS } from "../core/template.js";
 import { unitsFor, DIMENSIONS } from "../core/units.js";
 import { clear, h } from "./dom.js";
-import { commitSoon, emit, history, on, refreshTheme, selected, selectedElements, setSelection, state, applyComparison } from "./state.js";
+import { checkbox, colorInput, datalistInput, numberInput, row, selectInput, textArea, textInput } from "./inputs.js";
+import { buildThemeEditor } from "./theme-editor.js";
+import { commitSoon, emit, history, on, selected, selectedElements, setSelection, state, applyComparison } from "./state.js";
 
 let root;
 
@@ -38,9 +40,6 @@ export function initInspector() {
   });
 }
 
-function row(label, control, hint) {
-  return h("label", { class: "field" }, h("span", { class: "field-label" }, label), control, hint ? h("small", { class: "hint" }, hint) : null);
-}
 
 function changed(el) {
   emit("element", el);
@@ -329,13 +328,6 @@ function buildTemplate() {
     h("div", { class: "grid-2" },
       row("Canvas width", numberInput(t.canvas.width, { step: 1, min: 16, lazy: true }, (v) => { t.canvas.width = Math.round(v); commit(); })),
       row("Canvas height", numberInput(t.canvas.height, { step: 1, min: 16, lazy: true }, (v) => { t.canvas.height = Math.round(v); commit(); }))),
-    row("Theme", selectInput([...state.themes.values()].map((th) => ({ value: th.id, label: th.name })), t.theme, (v) => {
-      t.theme = v;
-      state.baseTheme = state.themes.get(v);
-      refreshTheme();
-      history.push();
-      build();
-    })),
     row("Delta compares against (when a delta uses \"Template setting\")", selectInput(comparisonChoices(), String(t.timing.comparison), (v) => {
       t.timing.comparison = v === "best" || v === "theoretical" ? v : Number(v);
       applyComparison();
@@ -355,48 +347,7 @@ function buildTemplate() {
       : null,
   ));
 
-  const th = state.theme;
-  const over = (t.themeOverrides = t.themeOverrides || {});
-  const setOver = (path, v) => {
-    let o = over;
-    for (let i = 0; i < path.length - 1; i++) o = o[path[i]] = o[path[i]] || {};
-    if (v === "" || v == null) delete o[path[path.length - 1]];
-    else o[path[path.length - 1]] = v;
-    refreshTheme();
-    commitSoon();
-  };
-
-  const colors = h("section", { class: "insp-section" }, h("h3", {}, "Colors"), h("p", { class: "muted small" }, "Named colors every element can use. Changes apply to this template only."));
-  for (const [name, value] of Object.entries(th.colors)) {
-    colors.append(row(name, colorInput(value, (v) => setOver(["colors", name], v), false)));
-  }
-  const newName = h("input", { type: "text", placeholder: "new color name" });
-  colors.append(h("div", { class: "row-inline" }, newName, h("button", { onclick: () => { const n = newName.value.trim(); if (n) { setOver(["colors", n], "#FFFFFF"); build(); } } }, "Add color")));
-  root.append(colors);
-
-  const fonts = h("section", { class: "insp-section" }, h("h3", {}, "Fonts"), h("p", { class: "muted small" }, "CSS font families per role. Use installed fonts, or add web fonts in the theme file (fontFaces)."));
-  for (const [role, f] of Object.entries(th.fonts)) {
-    fonts.append(h("div", { class: "font-row" },
-      h("strong", {}, role),
-      row("Family", textInput(f.family, (v) => setOver(["fonts", role, "family"], v))),
-      h("div", { class: "grid-2" },
-        row("Weight", numberInput(f.weight, { step: 100, min: 100, max: 900 }, (v) => setOver(["fonts", role, "weight"], v))),
-        h("label", { class: "field check" }, checkbox(!!f.tabular, (v) => setOver(["fonts", role, "tabular"], v)), h("span", {}, "Fixed-width digits")))));
-  }
-  root.append(fonts);
-
-  const p = th.panel;
-  root.append(h("section", { class: "insp-section" }, h("h3", {}, "Panels"),
-    row("Shape", selectInput(shapes.list().map((s) => ({ value: s.id, label: s.label })), p.shape, (v) => setOver(["panel", "shape"], v))),
-    h("div", { class: "grid-2" },
-      row("Radius / cut", numberInput(p.radius ?? 0, { step: 1, min: 0 }, (v) => setOver(["panel", "radius"], v))),
-      row("Skew", numberInput(p.skew ?? 0, { step: 1 }, (v) => setOver(["panel", "skew"], v))),
-      row("Padding", numberInput(p.padding ?? 0, { step: 1, min: 0 }, (v) => setOver(["panel", "padding"], v))),
-      row("Border width", numberInput(p.strokeWidth ?? 0, { step: 1, min: 0 }, (v) => setOver(["panel", "strokeWidth"], v)))),
-    row("Fill", colorInput(p.fill, (v) => setOver(["panel", "fill"], v))),
-    row("Border", colorInput(p.stroke, (v) => setOver(["panel", "stroke"], v))),
-    h("button", { onclick: () => { t.themeOverrides = null; refreshTheme(); history.push(); build(); } }, "Reset theme changes"),
-  ));
+  buildThemeEditor(root, build);
 }
 
 function comparisonChoices() {
@@ -406,81 +357,4 @@ function comparisonChoices() {
   ];
   if (state.session) for (const l of state.session.laps) out.push({ value: String(l.number), label: `Lap ${l.number}` });
   return out;
-}
-
-// ── Inputs ───────────────────────────────────────────────────────────────────
-
-function textInput(value, onChange) {
-  const i = h("input", { type: "text", value: value ?? "" });
-  i.addEventListener("input", () => onChange(i.value));
-  return i;
-}
-
-function textArea(value, onChange) {
-  const i = h("textarea", { rows: 3 }, value ?? "");
-  i.addEventListener("input", () => onChange(i.value));
-  return i;
-}
-
-function numberInput(value, p, onChange) {
-  const i = h("input", { type: "number", value: value ?? 0, step: p.step ?? "any", min: p.min, max: p.max });
-  i.addEventListener(p.lazy ? "change" : "input", () => {
-    const v = Number(i.value);
-    if (i.value !== "" && Number.isFinite(v)) onChange(v);
-  });
-  return i;
-}
-
-function checkbox(value, onChange) {
-  const i = h("input", { type: "checkbox" });
-  i.checked = !!value;
-  i.addEventListener("change", () => onChange(i.checked));
-  return i;
-}
-
-function selectInput(options, value, onChange, allowMissing = false) {
-  const s = h("select", {}, options.map((o) => h("option", { value: o.value }, o.label)));
-  if (value != null && !options.some((o) => String(o.value) === String(value)) && allowMissing) s.append(h("option", { value }, String(value)));
-  s.value = value ?? "";
-  s.addEventListener("change", () => onChange(s.value));
-  return s;
-}
-
-let listCounter = 0;
-function datalistInput(value, choices, onChange) {
-  const id = `dl-${++listCounter}`;
-  const i = h("input", { type: "text", value: value ?? "", list: id });
-  const dl = h("datalist", { id }, choices.map((c) => h("option", { value: c.value }, c.label)));
-  i.addEventListener("change", () => onChange(i.value.trim()));
-  return h("div", {}, i, dl);
-}
-
-/** A color reference: theme color name or CSS color, with a swatch and picker. */
-function colorInput(value, onChange, allowNames = true) {
-  const id = `cl-${++listCounter}`;
-  const text = h("input", { type: "text", value: value ?? "", list: allowNames ? id : null, class: "color-text" });
-  const swatch = h("span", { class: "swatch" });
-  const picker = h("input", { type: "color", class: "color-pick", title: "Pick a color" });
-  const update = () => {
-    const resolved = state.theme && state.theme.colors[text.value] ? state.theme.colors[text.value] : text.value;
-    swatch.style.background = resolved || "transparent";
-    const hex = toHex(resolved);
-    if (hex) picker.value = hex;
-  };
-  text.addEventListener("input", () => { update(); onChange(text.value.trim()); });
-  picker.addEventListener("input", () => { text.value = picker.value.toUpperCase(); update(); onChange(text.value); });
-  update();
-  const dl = allowNames ? h("datalist", { id }, Object.keys((state.theme && state.theme.colors) || {}).map((n) => h("option", { value: n }))) : null;
-  return h("div", { class: "color-field" }, swatch, text, picker, dl);
-}
-
-function toHex(css) {
-  if (!css) return null;
-  const c = document.createElement("canvas").getContext("2d");
-  c.fillStyle = "#000";
-  c.fillStyle = css;
-  const v = c.fillStyle;
-  if (v.startsWith("#")) return v.length === 7 ? v : null;
-  const m = v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  return m ? "#" + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
 }
