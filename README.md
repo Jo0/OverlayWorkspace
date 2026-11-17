@@ -88,9 +88,10 @@ untested.
    - **Skip:** leaves a lap out of "best" and out of the comparison, e.g. a
      lap that isn't a run. A skipped lap still shows its own timer and still
      exports.
-   - **Official results…:** what the timing sheet says about each run: the
+   - **Official results:** what the timing sheet says about each run: the
      official (timing-light) time, cones, and off course / DNF / DSQ /
-     rerun. Type them in, or paste your row from the results page (AXware
+     rerun. Open it from the prompt above the run table, a run's **Res**
+     cell (＋), or the run timer's settings. Type them in, or paste your row from the results page (AXware
      style `68.849+1  70.123+OC  DNF`; names and car numbers are ignored).
      Each cone adds the session's penalty (1 s by default). The run timer
      shows the GPS time while running and the official time at the finish,

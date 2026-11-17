@@ -24,6 +24,8 @@ export function initPanels() {
   on("session", () => { buildDataPanel(); buildVideoPanel(); });
   on("comparison-changed", buildDataPanel);
   on("results-changed", buildDataPanel);
+  on("open-results", () => { if (state.session && state.session.laps.length) openResultsDialog(); });
+  on("template", () => { if (state.session && !state.session.laps.some((l) => l.result)) buildDataPanel(); });
   on("video", buildVideoPanel);
   on("time", updateSyncScrub);
   on("view-lap", (lap) => { focusLapNumber = lap.number; if (state.video) buildVideoPanel(); });
@@ -73,10 +75,11 @@ function buildDataPanel() {
     root.append(h("p", { class: "muted small" }, "No laps in this session."));
     return;
   }
+  root.append(resultsPrompt(s));
   const cmp = state.timing.comparisonLap();
   const best = state.timing.bestLap();
   const table = h("table", { class: "laps" },
-    h("thead", {}, h("tr", {}, h("th", {}, "Lap"), h("th", {}, "Time"), h("th", { title: "Fragment (recording segment)" }, "Frag"), h("th", { title: "Not a run, or leave it out of best and comparison. Cones, OC and DNF go in Official results." }, "Skip"), h("th", { title: "Comparison lap for the delta" }, "Cmp"), h("th", {}, ""))));
+    h("thead", {}, h("tr", {}, h("th", {}, "Lap"), h("th", {}, "Time"), h("th", { class: "col-frag", title: "Fragment (recording segment)" }, "Frag"), h("th", { title: "Not a run, or leave it out of best and comparison. Cones, OC and DNF go in Official results." }, "Skip"), h("th", { title: "Comparison lap for the delta" }, "Cmp"), h("th", { title: "Official result: cones, off course, DNF. Click to enter." }, "Res"), h("th", {}, ""))));
   const tb = h("tbody");
   for (const l of s.laps) {
     const skip = h("input", { type: "checkbox", title: "Leave out of best lap and comparison" });
@@ -94,10 +97,15 @@ function buildDataPanel() {
     });
     tb.append(h("tr", { class: [l === cmp ? "is-cmp" : "", l === best ? "is-best" : "", l.excluded ? "is-skip" : ""].join(" ") },
       h("td", {}, l.number),
-      h("td", { class: "mono", title: l.result && Number.isFinite(l.result.official) ? `GPS ${formatLapTime(l.duration)}` : "" }, formatLapTime(rawTime(l)), resultMark(l) ? h("span", { class: "result-mark" }, ` ${resultMark(l)}`) : null),
-      h("td", { class: "muted" }, l.fragment),
+      h("td", { class: "mono", title: l.result && Number.isFinite(l.result.official) ? `Official time (GPS ${formatLapTime(l.duration)})` : "GPS time" }, formatLapTime(rawTime(l))),
+      h("td", { class: "muted col-frag" }, l.fragment),
       h("td", {}, skip),
       h("td", {}, radio),
+      h("td", {}, h("button", {
+        class: `result-cell${resultMark(l) ? " has" : l.result ? " has-time" : ""}`,
+        title: l.result ? "Edit this run's official result" : "Enter this run's official result (time, cones, OC/DNF)",
+        onclick: () => openResultsDialog({ focusRun: l.number }),
+      }, resultMark(l) || (l.result ? "✓" : "＋"))),
       h("td", {}, h("button", { class: "small", title: "Jump to 2 s before this lap starts", onclick: () => { setTime(l.start - 2); seekVideoToTime(); emit("view-lap", l); } }, "Go"))));
   }
   table.append(tb);
@@ -107,9 +115,26 @@ function buildDataPanel() {
     : cmp.theoretical ? `Comparison: theoretical ${formatLapTime(cmp.duration)} (best of ${cmp.sections.length} sections; ${formatLapTime(best ? best.duration - cmp.duration : NaN)} under the best lap)`
     : `Comparison: lap ${cmp.number}${mode === "best" ? " (session best)" : mode === "theoretical" ? " (session best; theoretical needs 2+ laps)" : ""}`;
   root.append(table, h("div", { class: "row-inline small muted" }, h("span", {}, cmpText)),
-    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")),
-    h("div", { class: "row-inline" }, h("button", { class: "small", onclick: openResultsDialog, title: "Official times, cones, off course / DNF per run" }, "Official results…"),
-      s.laps.some((l) => l.result) ? h("span", { class: "muted small" }, `${s.laps.filter((l) => l.result).length} run(s) with results · ${s.conePenalty} s per cone`) : null));
+    h("div", { class: "row-inline" }, compareTo("best", "Compare to session best"), compareTo("theoretical", "Compare to theoretical")));
+}
+
+/**
+ * Where official results start: a prompt with what they do while there are
+ * none (prominent for autocross, where every run has a timing sheet), then a
+ * one-line summary with an Edit button.
+ */
+function resultsPrompt(s) {
+  const n = s.laps.filter((l) => l.result).length;
+  if (n) {
+    return h("div", { class: "results-summary row-inline" },
+      h("span", { class: "small" }, `Official results: ${n} of ${s.laps.length} runs · ${s.conePenalty} s per cone`),
+      h("button", { class: "small", onclick: () => openResultsDialog() }, "Edit…"));
+  }
+  const autocross = state.template && state.template.sessionType === "autocross";
+  return h("div", { class: `results-prompt${autocross ? " strong" : ""}` },
+    h("div", { class: "small" }, h("strong", {}, "Official results"),
+      ": the timing sheet's times, cones and OC/DNF. The timer then shows them at the finish (1:08.849 +2), and best goes by the time as it counts."),
+    h("button", { class: autocross ? "primary small" : "small", onclick: () => openResultsDialog() }, "Enter official results…"));
 }
 
 // ── Video ────────────────────────────────────────────────────────────────────

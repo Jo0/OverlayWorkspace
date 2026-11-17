@@ -164,6 +164,8 @@ function propField(el, p) {
       return row(p.label, h("div", { class: "stack" }, file, val ? h("button", { onclick: () => { set(""); build(); } }, "Remove image") : null),
         "Embedded in the template file as a data URL.");
     }
+    case "action": // a button that asks another panel to do something
+      return h("div", { class: "field" }, h("button", { class: "small", onclick: () => emit(p.event) }, p.label), p.hint ? h("small", { class: "hint" }, p.hint) : null);
     case "textarea":
       return row(p.label, textArea(val, set));
     default:

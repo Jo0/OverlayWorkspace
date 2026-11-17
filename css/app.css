@@ -91,12 +91,13 @@ h3 { font-size: 12px; margin: 10px 0 6px; color: var(--muted); text-transform: u
 .align-row select { width: auto; }
 
 table.laps { width: 100%; border-collapse: collapse; font-size: 12px; }
-table.laps th { text-align: left; color: var(--muted); font-weight: 600; padding: 3px 4px; border-bottom: 1px solid var(--line); }
-table.laps td { padding: 3px 4px; border-bottom: 1px solid #1f252e; }
+table.laps th { text-align: left; color: var(--muted); font-weight: 600; padding: 3px 3px; border-bottom: 1px solid var(--line); }
+table.laps td { padding: 3px 3px; border-bottom: 1px solid #1f252e; }
+table.laps button.small { padding: 2px 5px; }
 table.laps tr.is-best td:nth-child(2) { color: var(--ok); }
 table.laps tr.is-cmp td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 table.laps tr.is-skip td { color: var(--muted); text-decoration: line-through; }
-table.laps tr.is-skip td:nth-child(4), table.laps tr.is-skip td:nth-child(5), table.laps tr.is-skip td:nth-child(6) { text-decoration: none; }
+table.laps tr.is-skip td:has(input, button) { text-decoration: none; }
 
 ul.layers { list-style: none; margin: 0; padding: 0; }
 ul.layers li { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: var(--radius); cursor: pointer; }
@@ -179,6 +180,7 @@ ul.layers li.in-group { padding-left: 28px; }
 
 @media (max-width: 1100px) {
   .workspace { grid-template-columns: 260px 1fr 290px; }
+  table.laps .col-frag { display: none; } /* the narrow Data panel can't fit every column */
   .readout { min-width: 0; }
 }
 @media (max-width: 820px) {
@@ -248,7 +250,13 @@ details.advanced summary { cursor: pointer; color: var(--muted); }
 .font-local p { margin: 0 0 6px; }
 
 /* Official results */
-.result-mark { color: var(--err); font-size: 11px; }
+.result-cell { padding: 0 4px; min-width: 26px; font-size: 11px; background: transparent; border-color: var(--line); color: var(--muted); }
+.result-cell.has { color: var(--err); border-color: transparent; font-weight: 600; }
+.result-cell.has-time { color: var(--ok); border-color: transparent; }
+.results-prompt { border: 1px dashed var(--line); border-radius: var(--radius); padding: 8px 10px; margin: 8px 0; display: grid; gap: 6px; justify-items: start; }
+.results-prompt.strong { border: 1px solid var(--warn); background: rgba(255, 176, 0, 0.08); }
+.results-summary { margin: 8px 0; justify-content: space-between; }
+table.results tr.focus td { background: #1d3550; }
 .results-wrap { max-height: 300px; overflow-y: auto; margin-bottom: 10px; }
 table.results input.narrow, input.narrow { width: 90px; }
 table.results select { max-width: 150px; }

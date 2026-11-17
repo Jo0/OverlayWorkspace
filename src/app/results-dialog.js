@@ -18,7 +18,8 @@ function changed() {
   emit("results-changed");
 }
 
-export function openResultsDialog() {
+/** Opens the dialog; focusRun scrolls to that run and puts the cursor in its official time. */
+export function openResultsDialog({ focusRun = null } = {}) {
   const s = state.session;
   if (!s || !s.laps.length) return;
   dialog = dialog || $("#results-dialog");
@@ -56,7 +57,7 @@ export function openResultsDialog() {
       status.value = r.status || "";
       status.addEventListener("change", () => edit(l, (res) => { res.status = status.value || undefined; }));
       const c = countedTime(l, s.conePenalty);
-      tb.append(h("tr", { class: l.excluded ? "is-skip" : "" },
+      tb.append(h("tr", { class: `${l.excluded ? "is-skip" : ""}${l.number === focusRun ? " focus" : ""}`, dataset: { run: l.number } },
         h("td", {}, l.number, l.excluded ? h("span", { class: "muted small" }, " skip") : null),
         h("td", { class: "mono muted" }, formatLapTime(l.duration)),
         h("td", {}, official),
@@ -115,6 +116,11 @@ export function openResultsDialog() {
   );
   render();
   dialog.showModal();
+  const row = focusRun != null && table.querySelector(`tr[data-run="${focusRun}"]`);
+  if (row) {
+    row.scrollIntoView({ block: "center" });
+    row.querySelector("input").focus();
+  }
 }
 
 /** Drops an empty result object, so untouched runs stay plain. */
