@@ -74,18 +74,23 @@ function clockHint(sets) {
 /**
  * @param session  Session with @latitude/@longitude
  * @param fixSets  one array of { t (camera clock), lat, lon } per clip
+ * @param options  maxOffset: how far (s) to search either side of `center`.
+ *   center: where to search (default 0). A GoPro's GPS gives real UTC, so its
+ *   reader knows the camera clock's error to within a second or so, even when
+ *   the camera stored local time as UTC (hours off): search around that.
  * @returns { offset, error, clips: [{ offset, error }], ambiguous: { offset, error } | null }
  *   offset: seconds to ADD to camera time to get data time (negative = camera fast)
  *   error:  mean distance in metres between the tracks at that offset
  *   Throws if nothing lines up.
  */
-export function matchClockOffset(session, fixSets, { maxOffset = 3600 } = {}) {
+export function matchClockOffset(session, fixSets, { maxOffset = 3600, center = 0 } = {}) {
   const score = makeScorer(session);
   const sets = fixSets.filter((f) => f.length >= 20);
-  if (!sets.length) throw new Error("Not enough camera GPS fixes (was the GPS remote connected and locked?).");
-  const coarse = search(score, sets.map((f) => thin(f)), -maxOffset, maxOffset, 0.5);
+  if (!sets.length) throw new Error("Not enough camera GPS fixes (was the GPS connected and locked?).");
+  const coarse = search(score, sets.map((f) => thin(f)), center - maxOffset, center + maxOffset, 0.5);
   if (coarse[0].error >= CAP_M) {
-    throw new Error("The camera's GPS track doesn't line up with this session anywhere within ±" + Math.round(maxOffset / 60) + " min. Same day and place?");
+    const span = maxOffset >= 120 ? `${Math.round(maxOffset / 60)} min` : `${maxOffset} s`;
+    throw new Error(`The camera's GPS track doesn't line up with this session anywhere within ±${span}${center ? " of what its GPS time says" : ""}. Same day and place?`);
   }
   // A course driven over and over matches at several offsets (one per run),
   // and a coarse grid can land up to a step away from the true one, which at

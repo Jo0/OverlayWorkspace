@@ -1,5 +1,7 @@
 # OverlayWorkspace
 
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/badjo0jo0)
+
 Design telemetry overlays for your onboard video on a full-size screen, from
 your lap timer's data export, and render them as an overlay video plus an
 alpha matte that any editor (or ffmpeg) can put over your footage.
@@ -130,6 +132,15 @@ untested.
      the original camera file or its `.nmea`. On autocross every run follows
      the same line, so one clip could match the wrong run; the DJI remote's own
      clock settles that. Several `.nmea` files picked together do too.
+   - **GoPro:** models with GPS (HERO5–HERO11 Black, HERO13 Black, MAX) work
+     the same way, from the clip's own telemetry. GoPro GPS records real UTC
+     time, so the sync works even when the camera's clock or time zone is
+     hours off, and the run is never confused with another. The HERO12 Black,
+     HERO11 Mini and HERO10 Bones have no GPS. The camera needs a GPS lock:
+     open sky, and up to a minute after power-on. (Tested on GoPro's own
+     sample clips and on synthetic data; not yet on a real track session.
+     If you have a GoPro clip with lap timer data from the same session,
+     please open an issue.)
    - **By hand:** move the video to the frame where you cross the start line,
      choose "start of Lap N" and click **Sync**. Or type the offset under
      *Or set the offset by number*.
@@ -196,7 +207,7 @@ src/importers/            one file per data format (RaceChrono CSV v3 so far)
 src/widgets/              overlay elements (readout, timer, delta, delta pane, dial, bar, trace graph, G circle, map, text, shape, image)
 src/render/               renderer, drawing helpers, panel shapes
 src/export/               WebCodecs exporter, MP4 writer, file sinks
-src/video/                video recording time, DJI GPS track, NMEA reader
+src/video/                video recording time, camera GPS tracks (DJI, GoPro GPMF), NMEA reader
 src/app/                  editor UI: stage, inspector, panels, timeline, export dialog
 templates/, themes/       JSON, listed in each folder's index.json
 data/google-fonts.json    font picker catalog (tools/update-google-fonts.py rebuilds it)
@@ -208,7 +219,14 @@ tools/update-google-fonts.py  refreshes data/google-fonts.json from Google Fonts
 ## Development
 
 ```bash
-node --test test/*.test.js   # unit tests: importer, timing, units, placement, MP4 writer, arrange, fonts, themes
+node --test test/*.test.js   # unit tests: importer, timing, units, placement, MP4 writer, arrange, fonts, themes, GoPro GPS
+```
+
+One GoPro test also reads GoPro's own sample clips when they're in
+`samples/gopro/` (skipped otherwise):
+
+```bash
+mkdir -p samples/gopro && for f in hero6 hero8; do curl -L -o samples/gopro/$f.mp4 https://raw.githubusercontent.com/gopro/gpmf-parser/main/samples/$f.mp4; done
 ```
 
 The dev server accepts `PUT /samples/out/<file>` so automated browser tests can
@@ -223,9 +241,9 @@ startup (same-origin paths only).
 - [x] Templates: autocross, track day, rally stage; themes: default, broadcast, minimal
 - [x] Overlay and alpha matte export (H.264 via WebCodecs), JSON sidecar
 - [ ] More importers: RaceChrono VBO/NMEA, TrackAddict, Harry's LapTimer,
-      AiM/RaceCapture CSV, GoPro GPMF, DJI (camera GPS via the remote)
+      AiM/RaceCapture CSV, GoPro GPMF and DJI telemetry as data sources
 - [x] Auto-sync from the camera's own GPS track (DJI with a GPS remote, or NMEA)
-- [ ] Auto-sync for GoPro (GPMF GPS)
+- [x] Auto-sync for GoPro (GPMF GPS); still to confirm on a real track session
 - [ ] Official times / penalties per lap (autocross cones), shown on the timer
 - [x] Multi-select, alignment tools, element groups
 - [x] Web font picker; theme editor that can save a theme file

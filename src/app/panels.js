@@ -7,6 +7,7 @@ import { formatClock, formatLapTime } from "../core/units.js";
 import { importData } from "../importers/index.js";
 import { readMp4Info } from "../video/mp4-info.js";
 import { readDjiTrack } from "../video/dji-gps.js";
+import { readGoProTrack } from "../video/gopro-gps.js";
 import { parseNmea } from "../video/nmea.js";
 import { matchClockOffset } from "../core/gps-sync.js";
 import { $, clear, h, pickFile, pickFiles } from "./dom.js";
@@ -55,7 +56,7 @@ function buildDataPanel() {
   const s = state.session;
   if (!s) {
     root.append(h("p", { class: "muted small" }, "Supported: ", importers.list().map((i) => i.label).join(", "), "."),
-      ...importers.list().map((i) => (i.help ? h("p", { class: "muted small" }, i.help) : null)));
+      ...importers.list().filter((i) => i.help).map((i) => h("p", { class: "muted small" }, i.help)));
     return;
   }
   const dur = s.end - s.start;
@@ -167,7 +168,8 @@ function buildVideoPanel() {
   corr.addEventListener("change", () => { const n = Number(corr.value); if (Number.isFinite(n)) { setClipStart(v.cameraStart + n); v.syncNote = null; } });
   const nudge = (d) => h("button", { class: "small", title: "Move the data against the video", onclick: () => setClipStart(v.clipStart + d) }, (d > 0 ? "+" : "") + d);
 
-  root.append(
+  // DOM append() would print a null as the text "null": drop the absent parts.
+  root.append(...[
     h("div", { class: "summary" },
       h("div", {}, h("strong", {}, v.name)),
       h("div", { class: "muted small" }, [v.width ? `${v.width}×${v.height}` : null, v.duration ? `${v.duration.toFixed(1)} s` : null, v.cameraStart != null ? `camera clock ${formatClock(v.cameraStart, false)}` : "no recording time in file"].filter(Boolean).join(" · "))),
@@ -177,7 +179,7 @@ function buildVideoPanel() {
     coverage(v),
     state.session ? h("div", { class: "auto-sync" },
       h("button", { class: "primary small", onclick: () => autoSync(v) }, "Auto-sync from GPS"),
-      h("small", { class: "hint" }, "Matches the GPS track the camera recorded (DJI with a GPS remote) to the session's track. If the loaded video is a flipped or re-encoded copy, you'll be asked for the original camera file or its .nmea.")) : null,
+      h("small", { class: "hint" }, "Matches the GPS track the camera recorded (DJI with a GPS remote, or a GoPro with GPS) to the session's track. If the loaded video is a flipped or re-encoded copy, you'll be asked for the original camera file or its .nmea.")) : null,
     state.session && state.session.laps.length ? syncSteps(v) : null,
     h("details", { class: "advanced" },
       h("summary", { class: "small" }, "Or set the offset by number"),
@@ -185,7 +187,7 @@ function buildVideoPanel() {
         h("small", { class: "hint" }, "Seconds to add to the camera's clock, e.g. −169.40 if it ran 2:49.40 fast (CameraWorkflow's clock_offset.py prints this per clip).")),
       h("div", { class: "row-inline" }, nudge(-1), nudge(-0.1), nudge(-0.01), nudge(0.01), nudge(0.1), nudge(1))),
     h("button", { class: "small", onclick: () => { if (state.video.url) URL.revokeObjectURL(state.video.url); state.video = null; emit("video", null); buildVideoPanel(); } }, "Remove video"),
-  );
+  ].filter(Boolean));
 }
 
 // The two-step sync: move the VIDEO (not the data) to the start or finish
@@ -253,13 +255,21 @@ function stem(name) {
   return (name || "").replace(/\.[^.]+$/, "").toLowerCase();
 }
 
-/** Camera-side GPS fixes from a file: a DJI clip's metadata track or an NMEA log. */
+/**
+ * Camera-side GPS fixes from a file: a DJI clip's metadata track, a GoPro
+ * clip's GPMF telemetry, or an NMEA log. GoPro adds utcOffset (its GPS time
+ * against the camera clock) and device; noFix says the camera recorded GPS
+ * but never got a fix (or has no receiver).
+ */
 async function readCameraGps(file) {
   if (/\.(nmea|txt|log)$/i.test(file.name)) {
     return { name: file.name, fixes: parseNmea(await file.text()), creationTime: null };
   }
-  const tr = await readDjiTrack(file);
-  return tr ? { name: file.name, fixes: tr.fixes, creationTime: tr.creationTime } : null;
+  const dji = await readDjiTrack(file);
+  if (dji) return { name: file.name, fixes: dji.fixes, creationTime: dji.creationTime };
+  const gp = await readGoProTrack(file);
+  if (gp) return { name: file.name, fixes: gp.fixes, creationTime: gp.creationTime, utcOffset: gp.utcOffset, device: gp.device, noFix: gp.fixes.length < 20 };
+  return null;
 }
 
 async function autoSync(v) {
@@ -268,8 +278,11 @@ async function autoSync(v) {
     let sources = [];
     const own = await readCameraGps(v.file).catch(() => null);
     if (own && own.fixes.length >= 20) sources = [own];
-    else {
-      setStatus(`${v.name} has no camera GPS track (flipped and re-encoded copies lose it). Pick the ORIGINAL camera file (best: its GPS remote's clock rules out matching the wrong run), or select ALL the .nmea files from that day (one .nmea alone can match the wrong run on autocross).`, "warn");
+    else if (own && own.noFix) {
+      setStatus(`${v.name} is from a ${own.device || "GoPro"}, but it has no usable GPS: the camera never got a fix during this clip (it needs open sky and can take a minute after power-on), or the model has no GPS (HERO12 Black, HERO11 Mini, Bones). Use the two steps below.`, "warn");
+      return;
+    } else {
+      setStatus(`${v.name} has no camera GPS track (flipped and re-encoded copies lose it). Pick the ORIGINAL camera file (DJI: its GPS remote's clock rules out matching the wrong run; GoPro: its GPS time does), or select ALL the .nmea files from that day (one .nmea alone can match the wrong run on autocross).`, "warn");
       const files = await pickFiles(".mp4,.MP4,.mov,.nmea,.txt,.log");
       if (!files.length) return;
       for (const f of files) {
@@ -283,7 +296,11 @@ async function autoSync(v) {
     }
     setStatus("Matching the tracks…");
     await new Promise((r) => setTimeout(r, 0));
-    const m = matchClockOffset(state.session, sources.map((s) => s.fixes));
+    // GoPro GPS carries real UTC, which already says how far off the camera
+    // clock is (hours, if it stored local time as UTC): search just around it.
+    const utc = sources.map((s) => s.utcOffset).filter(Number.isFinite).sort((a, b) => a - b);
+    const center = utc.length ? utc[Math.floor(utc.length / 2)] : null;
+    const m = matchClockOffset(state.session, sources.map((s) => s.fixes), center != null ? { center, maxOffset: 30 } : {});
     // Clips' offsets differ by up to ~1 s (start times are whole seconds): use
     // the loaded clip's own result when it's among the sources.
     const k = sources.findIndex((s) => stem(s.name) === stem(v.name));
@@ -295,9 +312,11 @@ async function autoSync(v) {
       return;
     }
     setClipStart(base + off);
-    const mm = Math.floor(Math.abs(off) / 60), ss = (Math.abs(off) - mm * 60).toFixed(2).padStart(5, "0");
+    const hh = Math.floor(Math.abs(off) / 3600), mm = Math.floor((Math.abs(off) % 3600) / 60), ss = (Math.abs(off) % 60).toFixed(2).padStart(5, "0");
+    const clockOff = hh ? `${hh} h ${String(mm).padStart(2, "0")}:${ss}` : `${mm}:${ss}`;
     const laps = state.session.laps.filter((l) => l.start >= v.clipStart && l.start <= v.clipStart + (v.duration || 0));
-    v.syncNote = `Auto-synced from GPS: the camera clock was ${mm}:${ss} ${off < 0 ? "fast" : "slow"} (tracks match within ${err.toFixed(1)} m${m.usedGpsClock ? ", confirmed by the GPS remote's clock" : ""}).`
+    const how = center != null ? `, around where the ${sources[0].device || "GoPro"}'s GPS time put it` : m.usedGpsClock ? ", confirmed by the GPS remote's clock" : "";
+    v.syncNote = `Auto-synced from GPS: the camera clock was ${clockOff} ${off < 0 ? "fast" : "slow"} (tracks match within ${err.toFixed(1)} m${how}).`
       + (laps.length ? ` Lap ${laps[0].number} starts at ${fmtClipTime(laps[0].start - v.clipStart)} in the clip. Press ▶ to preview.` : "");
     if (m.ambiguous && !m.usedGpsClock) {
       v.syncNote += ` Careful: an offset of ${m.ambiguous.offset.toFixed(1)} s fits almost as well (probably another run on the same course). Check the preview; adding more clips from the day settles it.`;
