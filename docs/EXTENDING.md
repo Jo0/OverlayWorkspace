@@ -83,6 +83,10 @@ Rules:
   of the same session is ideal), and write unit tests with synthetic data
   shaped like it. Keep real files out of the repo: they hold someone's GPS
   track. See `test/importers.test.js`.
+- **Asking for files:** the issue templates in `.github/ISSUE_TEMPLATE/` ask
+  for the export, the same session in a format already supported (the best
+  check), the app's own lap times, and the export steps and settings, plus
+  whether a trimmed copy may become a test fixture.
 
 ## Widgets
 

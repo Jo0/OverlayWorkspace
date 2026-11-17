@@ -1,0 +1,71 @@
+name: Add a camera for auto-sync
+description: Ask for a camera's own GPS (or other telemetry) to be read, so video syncs to the data automatically.
+title: "Camera auto-sync: <camera model>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Auto-sync works by matching the GPS track the **camera** recorded against your lap timer's. So for a camera, the **video file itself is the data**, and it has to be the original.
+
+        **Original clips only.** Copy the file straight off the card. Anything edited, trimmed, rotated, re-encoded or shared through an app loses the telemetry track.
+
+        **Privacy:** the clip shows your car and surroundings, and its telemetry holds a GPS track. Both are public once attached. A clip from a public track or event is best.
+
+        **Size:** camera files are big. Upload them to a cloud share (Google Drive, Dropbox, OneDrive) set to "anyone with the link" and paste the link. A clip of a minute or two with GPS locked is enough, but it must overlap a lap timer session (below).
+
+  - type: input
+    id: camera
+    attributes:
+      label: Camera model and firmware
+      description: As shown in the camera's settings or app.
+      placeholder: e.g. Insta360 Ace Pro 2, firmware 1.2.3; DJI Osmo Action 6 with GPS remote
+    validations:
+      required: true
+
+  - type: textarea
+    id: clip
+    attributes:
+      label: "1. An original clip, straight off the card"
+      description: |
+        Recorded outdoors with the camera's GPS on (and locked: it can take a minute after power-on). If the camera writes extra files next to the video (.LRV, .THM, .LRF, .SRT, .GPX...), include those too: telemetry is sometimes stored there.
+      placeholder: Share link to the clip and any files that came with it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: "2. Lap timer data from the same drive"
+      description: An export from RaceChrono (CSV v3 or VBO) or another format OverlayWorkspace reads, covering the time the clip was recorded. This is what proves the sync is right.
+      placeholder: Drag the .zip here, or paste a share link.
+    validations:
+      required: true
+
+  - type: textarea
+    id: offset
+    attributes:
+      label: "3. How far off the camera's clock is, if you know"
+      description: Optional. If you synced this clip by hand in OverlayWorkspace, the offset it shows under "Or set the offset by number" is the right answer to check against.
+      placeholder: e.g. camera clock 2:49.40 fast
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Camera settings
+      placeholder: |
+        Resolution / frame rate: e.g. 4K 120 fps
+        Camera time zone and date/time setting: e.g. synced from phone, US Central
+        GPS: built in / via remote / phone app
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: The clip is the original file from the card, not edited or re-encoded.
+          required: true
+        - label: I understand the files are public, and I don't mind what they show.
+          required: true

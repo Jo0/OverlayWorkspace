@@ -80,7 +80,7 @@ function buildDataPanel() {
       h("strong", { class: "small" }, i.label),
       i.help ? h("div", { class: "muted small" }, i.help) : null,
       i.tested ? h("div", { class: `small tested ${i.tested.level}` }, i.tested.text) : null))));
-    const issues = CONFIG.sourceUrl ? `${CONFIG.sourceUrl}/issues` : null;
+    const issues = CONFIG.sourceUrl ? `${CONFIG.sourceUrl}/issues/new/choose` : null; // the templates list what to attach
     root.append(h("p", { class: "muted small" }, "A file that doesn't load right, or a format that's missing? ",
       issues ? h("a", { href: issues, target: "_blank", rel: "noopener" }, "Open an issue") : "Report it",
       " with a sample file. It holds your GPS track, so share a short one, or one from somewhere you don't mind showing."));

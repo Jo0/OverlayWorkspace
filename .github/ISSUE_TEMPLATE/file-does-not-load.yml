@@ -1,0 +1,75 @@
+name: A file doesn't load right
+description: A format OverlayWorkspace lists (RaceChrono, VBO, CSV) fails to load, or loads with wrong laps, units, times or columns.
+title: "Import problem: <format> from <app>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most of these formats have no public specification, so a real file that goes wrong is the most useful thing you can send.
+
+        **Privacy:** attachments are public, and data files hold a GPS track and sometimes your name. A session at a public track is best.
+        **Attaching:** put the file in a **.zip** (GitHub refuses some file types), or paste a cloud share link for big files.
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: Format
+      options:
+        - RaceChrono CSV v3
+        - VBO
+        - Other CSV (picked the columns)
+        - Something else (say below)
+    validations:
+      required: true
+
+  - type: input
+    id: app
+    attributes:
+      label: App or logger that wrote the file, and version
+      placeholder: e.g. Harry's LapTimer 25.1 (iOS), VBOX Sport
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The message in the status bar, or what's wrong (no laps, wrong lap times, speed off by a factor, wrong columns picked...). A screenshot helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should be
+      description: The lap times the app itself shows for this session (a screenshot of its lap list), or the right values.
+    validations:
+      required: true
+
+  - type: textarea
+    id: file
+    attributes:
+      label: The file, exactly as the app wrote it
+      description: Not re-saved in Excel or similar. If the session is split into several files, include them all.
+      placeholder: Drag the .zip here, or paste a share link.
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: e.g. Chrome 140 on Windows 11
+    validations:
+      required: true
+
+  - type: dropdown
+    id: fixture
+    attributes:
+      label: Can a trimmed copy of the file go into the repository's tests?
+      options:
+        - "No: use it for fixing and testing only"
+        - "Yes: a trimmed copy with names removed may be committed"
+    validations:
+      required: true

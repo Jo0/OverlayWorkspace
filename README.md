@@ -38,10 +38,10 @@ Data sources, and how far each has been tested:
 | **Any other CSV** with a header row | You pick time, position, speed and lap once per layout | Synthetic files |
 
 None of these formats except VBO publishes a specification, so a real file is
-the only way to be sure. If yours doesn't load right, please
-[open an issue](https://github.com/Jo0/OverlayWorkspace/issues) with a sample.
-It holds your GPS track, so share a short one, or one from a place you don't
-mind showing.
+the only way to be sure. If yours doesn't load right, or your lap timer isn't
+listed, [open an issue](https://github.com/Jo0/OverlayWorkspace/issues/new/choose)
+and pick the matching template: it lists exactly which files to attach. They
+hold your GPS track, so a session at a public track is best.
 
 Data without laps gets them from start/finish lines you place on the track.
 More lap timers and loggers plug in as importers; see
@@ -296,6 +296,20 @@ startup (same-origin paths only).
 - [x] Official times / penalties per lap (autocross cones), shown on the timer
 - [x] Multi-select, alignment tools, element groups
 - [x] Web font picker; theme editor that can save a theme file
+- [x] Logos and images (PNG, JPG, WebP, SVG) embedded in the template
+- [ ] Logo tint: recolor a one-colour logo to a theme color, so it follows
+      theme changes
+- [ ] Warn about (and offer to shrink) large embedded images: they're stored
+      in the template, and a few MB can silently break the browser autosave
+- [ ] Custom panel outlines from an SVG, scaled 9-slice style so corners and
+      stroke widths keep their size while the panel stretches
+- [ ] Custom gauges designed as SVGs, with parts bound to data (a needle that
+      rotates with speed, text that shows lap time), drawn natively so 4K
+      exports stay fast
+
+Want a format, camera or feature that isn't here?
+[Open an issue](https://github.com/Jo0/OverlayWorkspace/issues/new/choose):
+the templates ask for what's needed to build it in one go.
 
 ## License
 

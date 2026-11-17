@@ -1,0 +1,101 @@
+name: Add a data format (lap timer / logger)
+description: Ask for an app or logger's export to be supported. Attach the files below and it can usually be built without further questions.
+title: "Data format: <app or logger name>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Most lap timer formats have no public specification, so **your files are the spec**. The list below is everything needed to build and *verify* an importer. With all of it, there's normally no need to come back to you.
+
+        **No video needed.** Video is synced separately (a camera that should be read for auto-sync has its own template).
+
+        **Privacy:** this issue and its attachments are public. Data files contain a GPS track (where you drove) and often a driver name, car or phone model. A session at a public track or event is best; avoid one that starts or ends at home. You can edit names out of the file in a text editor if the format is text.
+
+        **Attaching files:** GitHub only accepts some file types, so put the files in a **.zip** and drag it into the box. Too big? Link a cloud share (Google Drive, Dropbox, OneDrive) set to "anyone with the link".
+
+  - type: input
+    id: app
+    attributes:
+      label: App or logger, and version
+      description: As shown in its About screen.
+      placeholder: e.g. TrackAddict 4.9.2 (Android), AiM Solo 2 DL with Race Studio 3.71
+    validations:
+      required: true
+
+  - type: textarea
+    id: export-steps
+    attributes:
+      label: How you exported it
+      description: The menu path and every option you picked (format, scope, units, "include video", etc.). Exporting a session often has choices that change the file.
+      placeholder: |
+        Session list → long-press the session → Export → CSV
+        Options: Units = Imperial, Include OBD data = on
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: "1. The export, exactly as the app wrote it"
+      description: |
+        Don't open and re-save it in Excel or similar first (that changes the format). If one session comes out as several files, include them all. A whole session is best; a short one is fine.
+      placeholder: Drag the .zip here, or paste a share link.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: "2. The SAME session in a format OverlayWorkspace already reads (strongly recommended)"
+      description: |
+        Many apps export several formats. If yours can also export **VBO**, or the session is also in **RaceChrono** (CSV v3), include that export of the *same* session. Comparing the two settles units, signs and the time base with no guesswork; it's how the VBO importer was verified. GPX or NMEA from the same session also helps.
+      placeholder: Drag the .zip here, or say "the app only exports this one format".
+
+  - type: textarea
+    id: lap-times
+    attributes:
+      label: "3. The app's own lap or run times for that session"
+      description: A screenshot of the session's lap list (with the date and start time if it shows them). This is what the importer's laps get checked against.
+      placeholder: Paste a screenshot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Units, time zone and sensors
+      description: Helps read the numbers right the first time.
+      placeholder: |
+        Units in the app: mph / km/h
+        Phone or logger time zone: e.g. US Central (UTC-6)
+        Session date and start time (local): e.g. 2026-11-15 11:16
+        Sensors besides GPS: e.g. OBD-II adapter (RPM, throttle), external GPS 10 Hz
+    validations:
+      required: true
+
+  - type: textarea
+    id: channels
+    attributes:
+      label: Which channels do you want on the overlay?
+      description: Speed, RPM, throttle, brake, G-force, lap timer, map... and the column names they have in the file, if you know them.
+
+  - type: dropdown
+    id: fixture
+    attributes:
+      label: Can a trimmed copy of the file go into the repository's tests?
+      description: Tests normally use made-up data. A short real sample (a lap or two, names removed) makes regressions much less likely, but it would be public in the repo forever.
+      options:
+        - "No: use it for building and testing only"
+        - "Yes: a trimmed copy with names removed may be committed"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I understand the attachments are public, and the files don't contain anything I mind sharing (home location, full name...).
+          required: true
+        - label: I tried loading the file in OverlayWorkspace first (its "Other CSV" importer may already handle it); what happened is described above.

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How to use OverlayWorkspace
+    url: https://github.com/Jo0/OverlayWorkspace#workflow
+    about: The README walks through loading data, syncing video, designing and exporting.
